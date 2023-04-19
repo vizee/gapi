@@ -29,11 +29,13 @@ func Test_skipJsonValue(t *testing.T) {
 		arg     string
 		wantErr bool
 	}{
-		{name: "array", arg: `[1,"hello",false,{"k1":"v1","k2":"v2"}]`, wantErr: false},
+		{name: "array", arg: `[1,"hello",false,{"k1":"v1","k2":null}]`, wantErr: false},
 		{name: "object", arg: `{"a":1,"b":"hello","c":[1,"hello",false,{"k1":"v1","k2":"v2"}],"d":{"k1":"v1","k2":"v2"}}`, wantErr: false},
 		{name: "ignore_syntax", arg: `{"a" 1 "b" "hello" "c":[1 "hello" false {"k1":"v1","k2":"v2"}],"d":{"k1":"v1","k2":"v2"}}`, wantErr: false},
 		{name: "bad_token", arg: `:`, wantErr: true},
 		{name: "unterminated", arg: `{"k1":1,"k2":2`, wantErr: true},
+		{name: "unterminated_sub", arg: `{"k1":1,"k2":[`, wantErr: true},
+		{name: "unexpected_token", arg: `{"k1":1,"k2":[}`, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -148,17 +150,29 @@ func Test_transJsonNumeric(t *testing.T) {
 	}{
 		{name: "omit_zero", args: args{tag: 1, kind: metadata.Int32Kind, s: []byte(`0`)}, want: ""},
 		{name: "double", args: args{tag: 1, kind: metadata.DoubleKind, s: []byte(`1`)}, want: "09000000000000f03f"},
+		{name: "bad_double", args: args{tag: 1, kind: metadata.DoubleKind, s: []byte(`a`)}, wantErr: true},
 		{name: "float", args: args{tag: 2, kind: metadata.FloatKind, s: []byte(`2`)}, want: "1500000040"},
+		{name: "bad_float", args: args{tag: 2, kind: metadata.FloatKind, s: []byte(`a`)}, wantErr: true},
 		{name: "int32", args: args{tag: 3, kind: metadata.Int32Kind, s: []byte(`3`)}, want: "1803"},
+		{name: "bad_int32", args: args{tag: 3, kind: metadata.Int32Kind, s: []byte(`a`)}, wantErr: true},
 		{name: "int64", args: args{tag: 4, kind: metadata.Int64Kind, s: []byte(`4`)}, want: "2004"},
+		{name: "bad_int64", args: args{tag: 4, kind: metadata.Int64Kind, s: []byte(`a`)}, wantErr: true},
 		{name: "uint32", args: args{tag: 5, kind: metadata.Uint32Kind, s: []byte(`5`)}, want: "2805"},
+		{name: "bad_uint32", args: args{tag: 5, kind: metadata.Uint32Kind, s: []byte(`a`)}, wantErr: true},
 		{name: "uint64", args: args{tag: 6, kind: metadata.Uint64Kind, s: []byte(`6`)}, want: "3006"},
+		{name: "bad_uint64", args: args{tag: 6, kind: metadata.Uint64Kind, s: []byte(`a`)}, wantErr: true},
 		{name: "sint32", args: args{tag: 7, kind: metadata.Sint32Kind, s: []byte(`7`)}, want: "380e"},
+		{name: "bad_sint32", args: args{tag: 7, kind: metadata.Sint32Kind, s: []byte(`a`)}, wantErr: true},
 		{name: "sint64", args: args{tag: 8, kind: metadata.Sint64Kind, s: []byte(`8`)}, want: "4010"},
+		{name: "bad_sint64", args: args{tag: 8, kind: metadata.Sint64Kind, s: []byte(`a`)}, wantErr: true},
 		{name: "fixed32", args: args{tag: 9, kind: metadata.Fixed32Kind, s: []byte(`9`)}, want: "4d09000000"},
+		{name: "bad_fixed32", args: args{tag: 9, kind: metadata.Fixed32Kind, s: []byte(`a`)}, wantErr: true},
 		{name: "fixed64", args: args{tag: 10, kind: metadata.Fixed64Kind, s: []byte(`10`)}, want: "510a00000000000000"},
+		{name: "bad_fixed64", args: args{tag: 10, kind: metadata.Fixed64Kind, s: []byte(`a`)}, wantErr: true},
 		{name: "sfixed32", args: args{tag: 11, kind: metadata.Sfixed32Kind, s: []byte(`11`)}, want: "5d0b000000"},
+		{name: "bad_sfixed32", args: args{tag: 11, kind: metadata.Sfixed32Kind, s: []byte(`a`)}, wantErr: true},
 		{name: "sfixed64", args: args{tag: 12, kind: metadata.Sfixed64Kind, s: []byte(`12`)}, want: "610c00000000000000"},
+		{name: "bad_sfixed64", args: args{tag: 12, kind: metadata.Sfixed64Kind, s: []byte(`a`)}, wantErr: true},
 		{name: "invalid_kind", args: args{tag: 1, kind: metadata.BoolKind, s: []byte(`1`)}, wantErr: true},
 	}
 	for _, tt := range tests {
