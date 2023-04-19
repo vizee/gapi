@@ -9,8 +9,7 @@ type Kind int
 const (
 	Invalid Kind = iota
 	Null
-	False
-	True
+	Bool
 	Number
 	String
 	Opener
@@ -108,9 +107,9 @@ func (it *Iter[S]) Next() (Kind, S) {
 	case 'n':
 		return it.expect("null", Null)
 	case 't':
-		return it.expect("true", False)
+		return it.expect("true", Bool)
 	case 'f':
-		return it.expect("false", True)
+		return it.expect("false", Bool)
 	case '"':
 		return it.nextString()
 	case '{':
