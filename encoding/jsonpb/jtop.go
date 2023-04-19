@@ -272,7 +272,7 @@ func transJsonToMap(p *proto.Encoder, j *JsonIter, tag uint32, entry *metadata.M
 }
 
 func transJsonNumeric(p *proto.Encoder, tag uint32, kind metadata.Kind, s []byte) error {
-	if metadata.IsNumericKind(kind) {
+	if !metadata.IsNumericKind(kind) {
 		return ErrTypeMismatch
 	}
 	// 提前检查 0 值
@@ -351,7 +351,7 @@ func transJsonNumeric(p *proto.Encoder, tag uint32, kind metadata.Kind, s []byte
 		if err != nil {
 			return err
 		}
-		p.EmitFixed32(tag, uint32(x))
+		p.EmitFixed64(tag, uint64(x))
 	}
 	return nil
 }
