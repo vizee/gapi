@@ -510,9 +510,9 @@ func transJsonObject(p *proto.Encoder, j *JsonIter, msg *metadata.Message) error
 	return io.ErrUnexpectedEOF
 }
 
-// Jtop 通过 JsonIter 解析 JSON，并且根据 msg 将 JSON 内容转译到 protobuf 二进制。
+// TranscodeToProto 通过 JsonIter 解析 JSON，并且根据 msg 将 JSON 内容转译到 protobuf 二进制。
 // 注意，受限于 metadata 可表达的结构和一些取舍，对 JSON 的解析并不按照 JSON 标准。
-func Jtop(p *proto.Encoder, j *JsonIter, msg *metadata.Message) error {
+func TranscodeToProto(p *proto.Encoder, j *JsonIter, msg *metadata.Message) error {
 	tok, _ := j.Next()
 	switch tok {
 	case jsonlit.Object:
