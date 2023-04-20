@@ -5,8 +5,7 @@ import "sort"
 type Kind uint8
 
 const (
-	InvalidKind Kind = iota
-	DoubleKind
+	DoubleKind Kind = iota
 	FloatKind
 	Int32Kind
 	Int64Kind
@@ -35,6 +34,20 @@ type Message struct {
 
 	tagIdx  []int
 	nameIdx map[string]int
+}
+
+func NewMessage(name string, fields []Field, indexTag bool, indexName bool) *Message {
+	msg := &Message{
+		Name:   name,
+		Fields: fields,
+	}
+	if indexTag {
+		msg.BakeTagIndex()
+	}
+	if indexName {
+		msg.BakeNameIndex()
+	}
+	return msg
 }
 
 func (m *Message) BakeTagIndex() {
@@ -120,7 +133,7 @@ type Field struct {
 	Kind      Kind
 	Ref       *Message
 	Tag       uint32
-	Repaeted  bool
+	Repeated  bool
 	OmitEmpty bool
 	RawData   bool
 	JsonEmbed bool

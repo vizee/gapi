@@ -188,3 +188,149 @@ func Test_transJsonNumeric(t *testing.T) {
 		})
 	}
 }
+
+func transJsonArrayFieldCase(j string, field *metadata.Field) (string, error) {
+	var buf proto.Encoder
+	it := jsonlit.NewIter([]byte(j))
+	it.Next()
+	err := transJsonArrayField(&buf, it, field)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf.Bytes()), nil
+}
+
+func Test_transJsonArrayFieldCase(t *testing.T) {
+	type args struct {
+		j     string
+		field *metadata.Field
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{name: "empty", args: args{j: `[]`, field: &metadata.Field{Tag: 1, Kind: metadata.Int32Kind, Repeated: true}}, want: ""},
+		{name: "strings", args: args{j: `["hello","中文","🚀"]`, field: &metadata.Field{Tag: 2, Kind: metadata.StringKind, Repeated: true}}, want: "120568656c6c6f1206e4b8ade696871204f09f9a80"},
+		{name: "bytes", args: args{j: `["YWJj","aGVsbG8=","d29ybGQ="]`, field: &metadata.Field{Tag: 2, Kind: metadata.BytesKind, Repeated: true}}, want: "1203616263120568656c6c6f1205776f726c64"},
+		{name: "packed_double", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.DoubleKind, Repeated: true}}, want: "12180000000000000000000000000000f03f0000000000000040"},
+		{name: "packed_float", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.FloatKind, Repeated: true}}, want: "120c000000000000803f00000040"},
+		{name: "packed_int32", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.Int32Kind, Repeated: true}}, want: "1203000102"},
+		{name: "packed_int64", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.Int64Kind, Repeated: true}}, want: "1203000102"},
+		{name: "packed_uint32", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.Uint32Kind, Repeated: true}}, want: "1203000102"},
+		{name: "packed_uint64", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.Uint64Kind, Repeated: true}}, want: "1203000102"},
+		{name: "packed_sint32", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.Sint32Kind, Repeated: true}}, want: "1203000204"},
+		{name: "packed_sint64", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.Sint64Kind, Repeated: true}}, want: "1203000204"},
+		{name: "packed_fixed32", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.Fixed32Kind, Repeated: true}}, want: "120c000000000100000002000000"},
+		{name: "packed_fixed64", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.Fixed64Kind, Repeated: true}}, want: "1218000000000000000001000000000000000200000000000000"},
+		{name: "packed_sfixed32", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.Sfixed32Kind, Repeated: true}}, want: "120c000000000100000002000000"},
+		{name: "packed_sfixed64", args: args{j: `[0,1,2]`, field: &metadata.Field{Tag: 2, Kind: metadata.Sfixed64Kind, Repeated: true}}, want: "1218000000000000000001000000000000000200000000000000"},
+		{name: "packed_bool", args: args{j: `[false,true,false]`, field: &metadata.Field{Tag: 2, Kind: metadata.BoolKind, Repeated: true}}, want: "1203000100"},
+		{name: "messages", args: args{j: `[{},null,{"name":"string","age":123},{"age":456}]`, field: &metadata.Field{Tag: 2, Kind: metadata.MessageKind, Ref: getTestSimpleMessage(), Repeated: true}}, want: "12001200120a0a06737472696e67107b120310c803"},
+		{name: "unterminated", args: args{j: `[0,1,2`, field: &metadata.Field{Tag: 2, Kind: metadata.Int32Kind, Repeated: true}}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := transJsonArrayFieldCase(tt.args.j, tt.args.field)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("transJsonArrayFieldCase() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("transJsonArrayFieldCase() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func transJsonToMapCase(j string, tag uint32, entry *metadata.Message) (string, error) {
+	var buf proto.Encoder
+	it := jsonlit.NewIter([]byte(j))
+	it.Next()
+	err := transJsonToMap(&buf, it, tag, entry)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf.Bytes()), nil
+}
+
+func Test_transJsonToMapCase(t *testing.T) {
+	type args struct {
+		j     string
+		tag   uint32
+		entry *metadata.Message
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{name: "empty", args: args{j: `{}`, tag: 2, entry: getTestMapEntry(metadata.StringKind, metadata.Int32Kind, nil)}, want: ""},
+		{name: "string_key", args: args{j: `{"a":1,"b":2}`, tag: 2, entry: getTestMapEntry(metadata.StringKind, metadata.Int32Kind, nil)}, want: "12050a0161100112050a01621002"},
+		{name: "numeric_key", args: args{j: `{"1":"a","2":"b"}`, tag: 2, entry: getTestMapEntry(metadata.Int32Kind, metadata.StringKind, nil)}, want: "1205080112016112050802120162"},
+		{name: "message_value", args: args{j: `{"v":{"name":"ok"}}`, tag: 2, entry: getTestMapEntry(metadata.StringKind, metadata.MessageKind, getTestSimpleMessage())}, want: "12090a017612040a026f6b"},
+		{name: "type_mismatched", args: args{j: `{"1":"a","2":"b"}`, tag: 2, entry: getTestMapEntry(metadata.BoolKind, metadata.StringKind, nil)}, wantErr: true},
+		{name: "unexpected_key", args: args{j: `{null`, tag: 2, entry: getTestMapEntry(metadata.StringKind, metadata.Int32Kind, nil)}, wantErr: true},
+		{name: "unexpected_termination", args: args{j: `{"key":}`, tag: 2, entry: getTestMapEntry(metadata.StringKind, metadata.Int32Kind, nil)}, wantErr: true},
+		{name: "eof", args: args{j: `{`, tag: 2, entry: getTestMapEntry(metadata.StringKind, metadata.Int32Kind, nil)}, wantErr: true},
+		{name: "zero_value", args: args{j: `{"v":0}`, tag: 3, entry: getTestMapEntry(metadata.StringKind, metadata.Int32Kind, nil)}, want: "1a030a0176"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := transJsonToMapCase(tt.args.j, tt.args.tag, tt.args.entry)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("transJsonToMapCase() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("transJsonToMapCase() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func transJsonObjectCase(j string, msg *metadata.Message) (string, error) {
+	var buf proto.Encoder
+	it := jsonlit.NewIter([]byte(j))
+	it.Next()
+	err := transJsonObject(&buf, it, msg)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf.Bytes()), nil
+}
+
+func Test_transJsonObjectCase(t *testing.T) {
+	const (
+		complexJson = `{"noexisted":null,"fdouble":123,"ffloat":123,"fint32":123,"fint64":123,"fuint32":123,"fuint64":123,"fsint32":123,"fsint64":123,"ffixed32":123,"ffixed64":123,"fsfixed32":123,"fsfixed64":123,"fbool":true,"fstring":"okk","fbytes":"AQID","fmap1":{"k":1},"fmap2":{"u":{"name":"abc","age":23,"male":true},"v":null},"fsubmsg":{"name":"efg","age":23,"male":true},"fint32s":[1,2,3],"fitems":[{"name":"abc","age":12,"male":true},null,{"name":"efg","age":23}]}`
+		complexWant = `090000000000c05e40150000f642187b207b287b307b38f60140f6014d7b000000517b000000000000005d7b000000617b00000000000000680172036f6b6b7a030102038201050a016b10018a010e0a017512090a03616263101718018a01030a01769201090a03656667101718019a0103010203a201090a03616263100c1801a20100a201070a036566671017`
+	)
+	type args struct {
+		j   string
+		msg *metadata.Message
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{name: "empty", args: args{j: `{}`, msg: getTestSimpleMessage()}, want: ""},
+		{name: "simple", args: args{j: `{"name":"string","age":123,"male":true}`, msg: getTestSimpleMessage()}, want: "0a06737472696e67107b1801"},
+		{name: "complex", args: args{j: complexJson, msg: getTestComplexMessage()}, want: complexWant},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := transJsonObjectCase(tt.args.j, tt.args.msg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("transJsonObjectCase() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("transJsonObjectCase() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

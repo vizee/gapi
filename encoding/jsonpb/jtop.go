@@ -238,7 +238,8 @@ func transJsonToMap(p *proto.Encoder, j *JsonIter, tag uint32, entry *metadata.M
 			continue
 		default:
 			if expectValue {
-				err := transJsonField(p, j, valueField, lead, s)
+				// NOTE: transJsonField 会跳过 0 值字段，导致结果比 proto.Marshal 的结果字节数更少，但不影响反序列化结果
+				err := transJsonField(&buf, j, valueField, lead, s)
 				if err != nil {
 					return err
 				}
@@ -249,13 +250,13 @@ func transJsonToMap(p *proto.Encoder, j *JsonIter, tag uint32, entry *metadata.M
 			} else if lead == jsonlit.String {
 				buf.Clear()
 				if keyField.Kind == metadata.StringKind {
-					err := transJsonString(p, keyField.Tag, true, s)
+					err := transJsonString(&buf, keyField.Tag, true, s)
 					if err != nil {
 						return err
 					}
 				} else if metadata.IsNumericKind(keyField.Kind) {
 					// 允许把 json key 转为将数值类型的 map key
-					err := transJsonNumeric(p, keyField.Tag, keyField.Kind, s[1:len(s)-1])
+					err := transJsonNumeric(&buf, keyField.Tag, keyField.Kind, s[1:len(s)-1])
 					if err != nil {
 						return err
 					}
@@ -425,7 +426,7 @@ func transJsonField(p *proto.Encoder, j *JsonIter, field *metadata.Field, lead j
 			return ErrTypeMismatch
 		}
 	case jsonlit.Array:
-		if field.Repaeted {
+		if field.Repeated {
 			return transJsonArrayField(p, j, field)
 		}
 		return ErrTypeMismatch
@@ -509,6 +510,8 @@ func transJsonObject(p *proto.Encoder, j *JsonIter, msg *metadata.Message) error
 	return io.ErrUnexpectedEOF
 }
 
+// Jtop 通过 JsonIter 解析 JSON，并且根据 msg 将 JSON 内容转译到 protobuf 二进制。
+// 注意，受限于 metadata 可表达的结构和一些取舍，对 JSON 的解析并不按照 JSON 标准。
 func Jtop(p *proto.Encoder, j *JsonIter, msg *metadata.Message) error {
 	tok, _ := j.Next()
 	switch tok {
