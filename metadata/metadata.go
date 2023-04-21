@@ -100,6 +100,12 @@ func (m *Message) FieldByTag(tag uint32) *Field {
 		if idx >= 0 {
 			return &m.Fields[idx]
 		}
+	} else {
+		for i := 0; i < len(m.Fields); i++ {
+			if m.Fields[i].Tag == tag {
+				return &m.Fields[i]
+			}
+		}
 	}
 	return nil
 }
@@ -129,13 +135,9 @@ func (m *Message) FieldByName(name string) *Field {
 }
 
 type Field struct {
-	Name      string
-	Kind      Kind
-	Ref       *Message
-	Tag       uint32
-	Repeated  bool
-	OmitEmpty bool
-	RawData   bool
-	JsonEmbed bool
-	Bind      int
+	Name     string
+	Kind     Kind
+	Ref      *Message
+	Tag      uint32
+	Repeated bool
 }

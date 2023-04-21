@@ -221,8 +221,9 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 }
 
 func transJsonToMap(p *proto.Encoder, j *JsonIter, tag uint32, entry *metadata.Message) error {
-	// assert(len(entry.Fields) == 2)
-	keyField, valueField := &entry.Fields[0], &entry.Fields[1]
+	keyField, valueField := entry.FieldByTag(1), entry.FieldByTag(2)
+	// assert(keyField != nil && valueField != nil)
+
 	var buf proto.Encoder
 	expectValue := false
 	for !j.EOF() {
@@ -250,13 +251,13 @@ func transJsonToMap(p *proto.Encoder, j *JsonIter, tag uint32, entry *metadata.M
 			} else if lead == jsonlit.String {
 				buf.Clear()
 				if keyField.Kind == metadata.StringKind {
-					err := transJsonString(&buf, keyField.Tag, true, s)
+					err := transJsonString(&buf, 1, true, s)
 					if err != nil {
 						return err
 					}
 				} else if metadata.IsNumericKind(keyField.Kind) {
 					// 允许把 json key 转为将数值类型的 map key
-					err := transJsonNumeric(&buf, keyField.Tag, keyField.Kind, s[1:len(s)-1])
+					err := transJsonNumeric(&buf, 1, keyField.Kind, s[1:len(s)-1])
 					if err != nil {
 						return err
 					}
