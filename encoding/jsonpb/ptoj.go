@@ -1,16 +1,18 @@
 package jsonpb
 
 import (
-	"bytes"
 	"encoding/base64"
 	"errors"
 	"math"
 	"strconv"
 
-	"github.com/vizee/gapi/encoding/jsonlit"
 	"github.com/vizee/gapi/encoding/proto"
 	"github.com/vizee/gapi/metadata"
 	"google.golang.org/protobuf/encoding/protowire"
+)
+
+var (
+	ErrInvalidWireType = errors.New("invalid wire type")
 )
 
 type protoValue struct {
@@ -36,10 +38,6 @@ func readProtoValue(p *proto.Decoder, wire protowire.Type) (val protoValue, e in
 	return
 }
 
-var (
-	ErrInvalidWireType = errors.New("invalid wire type")
-)
-
 var defaultValues = [...]string{
 	metadata.DoubleKind:   `0`,
 	metadata.FloatKind:    `0`,
@@ -60,20 +58,17 @@ var defaultValues = [...]string{
 	metadata.MessageKind:  `{}`,
 }
 
-func writeDefaultValue(w *bytes.Buffer, repeated bool, kind metadata.Kind) (err error) {
+func writeDefaultValue(j *JsonBuilder, repeated bool, kind metadata.Kind) (err error) {
 	if repeated {
-		_, err = w.Write(asBytes("[]"))
+		j.AppendString("[]")
 	} else {
-		_, err = w.Write(asBytes(defaultValues[kind]))
+		j.AppendString(defaultValues[kind])
 	}
 	return
 }
 
-func transProtoMap(w *bytes.Buffer, p *proto.Decoder, field *metadata.Field, s []byte) error {
-	err := w.WriteByte('{')
-	if err != nil {
-		return err
-	}
+func transProtoMap(j *JsonBuilder, p *proto.Decoder, field *metadata.Field, s []byte) error {
+	j.AppendByte('{')
 
 	keyField, valueField := field.Ref.FieldByTag(1), field.Ref.FieldByTag(2)
 	// assert(keyField != nil && valueField != nil)
@@ -86,10 +81,7 @@ func transProtoMap(w *bytes.Buffer, p *proto.Decoder, field *metadata.Field, s [
 		if !more {
 			more = true
 		} else {
-			err := w.WriteByte(',')
-			if err != nil {
-				return err
-			}
+			j.AppendByte(',')
 		}
 
 		// 上下文比较复杂，直接嵌套逻辑读取 KV
@@ -124,49 +116,41 @@ func transProtoMap(w *bytes.Buffer, p *proto.Decoder, field *metadata.Field, s [
 
 		if assigned&1 != 0 {
 			if keyField.Kind == metadata.StringKind {
-				err := transProtoString(w, values[0].s)
+				err := transProtoString(j, values[0].s)
 				if err != nil {
 					return err
 				}
 			} else {
-				err := w.WriteByte('"')
+				j.AppendByte('"')
+				err := transProtoSimpleValue(j, field.Kind, values[0].x)
 				if err != nil {
 					return err
 				}
-				err = transProtoSimpleValue(w, field.Kind, values[0].x)
-				if err != nil {
-					return err
-				}
-				err = w.WriteByte('"')
-				if err != nil {
-					return err
-				}
+				j.AppendByte('"')
 			}
 		} else {
-			_, err := w.Write(asBytes(`""`))
+			j.AppendString(`""`)
+		}
+
+		j.AppendByte(':')
+
+		if assigned&2 != 0 {
+			var err error
+			switch valueField.Kind {
+			case metadata.StringKind:
+				err = transProtoString(j, values[1].s)
+			case metadata.BytesKind:
+				err = transProtoBytes(j, values[1].s)
+			case metadata.MessageKind:
+				err = transProtoMessage(j, proto.NewDecoder(values[1].s), valueField.Ref)
+			default:
+				err = transProtoSimpleValue(j, field.Kind, values[1].x)
+			}
 			if err != nil {
 				return err
 			}
-		}
-
-		err := w.WriteByte(':')
-		if err != nil {
-			return err
-		}
-
-		if assigned&2 != 0 {
-			switch valueField.Kind {
-			case metadata.StringKind:
-				err = transProtoString(w, values[1].s)
-			case metadata.BytesKind:
-				err = transProtoBytes(w, values[1].s)
-			case metadata.MessageKind:
-				err = transProtoMessage(w, proto.NewDecoder(values[1].s), valueField.Ref)
-			default:
-				err = transProtoSimpleValue(w, field.Kind, values[1].x)
-			}
 		} else {
-			err := writeDefaultValue(w, valueField.Repeated, valueField.Kind)
+			err := writeDefaultValue(j, valueField.Repeated, valueField.Kind)
 			if err != nil {
 				return err
 			}
@@ -192,39 +176,34 @@ func transProtoMap(w *bytes.Buffer, p *proto.Decoder, field *metadata.Field, s [
 		}
 	}
 
-	return w.WriteByte('}')
+	j.AppendByte('}')
+	return nil
 }
 
-func transProtoRepeatedBytes(w *bytes.Buffer, p *proto.Decoder, field *metadata.Field, s []byte) error {
-	err := w.WriteByte('[')
-	if err != nil {
-		return err
-	}
+func transProtoRepeatedBytes(j *JsonBuilder, p *proto.Decoder, field *metadata.Field, s []byte) error {
+	j.AppendByte('[')
 
 	more := false
 	for {
 		if !more {
 			more = true
 		} else {
-			err := w.WriteByte(',')
-			if err != nil {
-				return err
-			}
+			j.AppendByte(',')
 		}
 
 		switch field.Kind {
 		case metadata.StringKind:
-			err := transProtoString(w, s)
+			err := transProtoString(j, s)
 			if err != nil {
 				return err
 			}
 		case metadata.BytesKind:
-			err := transProtoBytes(w, s)
+			err := transProtoBytes(j, s)
 			if err != nil {
 				return err
 			}
 		case metadata.MessageKind:
-			err := transProtoMessage(w, proto.NewDecoder(s), field.Ref)
+			err := transProtoMessage(j, proto.NewDecoder(s), field.Ref)
 			if err != nil {
 				return err
 			}
@@ -250,14 +229,12 @@ func transProtoRepeatedBytes(w *bytes.Buffer, p *proto.Decoder, field *metadata.
 		}
 	}
 
-	return w.WriteByte(']')
+	j.AppendByte(']')
+	return nil
 }
 
-func transProtoPackedArray(w *bytes.Buffer, p *proto.Decoder, field *metadata.Field) error {
-	err := w.WriteByte('[')
-	if err != nil {
-		return err
-	}
+func transProtoPackedArray(j *JsonBuilder, p *proto.Decoder, field *metadata.Field) error {
+	j.AppendByte('[')
 
 	wire := getFieldWireType(field)
 	more := false
@@ -265,71 +242,63 @@ func transProtoPackedArray(w *bytes.Buffer, p *proto.Decoder, field *metadata.Fi
 		if !more {
 			more = true
 		} else {
-			err := w.WriteByte(',')
-			if err != nil {
-				return err
-			}
+			j.AppendByte(',')
 		}
 		val, e := readProtoValue(p, wire)
 		if e < 0 {
 			return protowire.ParseError(e)
 		}
-		err := transProtoSimpleValue(w, field.Kind, val.x)
+		err := transProtoSimpleValue(j, field.Kind, val.x)
 		if err != nil {
 			return err
 		}
 	}
 
-	return w.WriteByte(']')
+	j.AppendByte(']')
+	return nil
 }
 
-func transProtoBytes(w *bytes.Buffer, s []byte) error {
-	err := w.WriteByte('"')
-	if err != nil {
-		return err
-	}
-	buf := make([]byte, base64.StdEncoding.EncodedLen(len(s)))
-	base64.StdEncoding.Encode(buf, s)
-	_, err = w.Write(buf)
-	if err != nil {
-		return err
-	}
-	return w.WriteByte('"')
+func transProtoBytes(j *JsonBuilder, s []byte) error {
+	j.AppendByte('"')
+	n := base64.StdEncoding.EncodedLen(len(s))
+	j.Reserve(n)
+	m := len(j.buf)
+	d := j.buf[m : m+n]
+	base64.StdEncoding.Encode(d, s)
+	j.buf = j.buf[:m+n]
+	j.AppendByte('"')
+	return nil
 }
 
-func transProtoString(w *bytes.Buffer, s []byte) error {
-	err := w.WriteByte('"')
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(jsonlit.EscapeString(make([]byte, 0, len(s)), s))
-	if err != nil {
-		return err
-	}
-	return w.WriteByte('"')
+func transProtoString(j *JsonBuilder, s []byte) error {
+	j.AppendByte('"')
+	j.AppendEscapedString(asString(s))
+	j.AppendByte('"')
+	return nil
 }
 
-func transProtoSimpleValue(w *bytes.Buffer, kind metadata.Kind, x uint64) error {
-	var pre [32]byte
-	buf := pre[:0]
+func transProtoSimpleValue(j *JsonBuilder, kind metadata.Kind, x uint64) error {
 	switch kind {
 	case metadata.DoubleKind:
-		buf = strconv.AppendFloat(buf, math.Float64frombits(x), 'f', -1, 64)
+		j.buf = strconv.AppendFloat(j.buf, math.Float64frombits(x), 'f', -1, 64)
 	case metadata.FloatKind:
-		buf = strconv.AppendFloat(buf, float64(math.Float32frombits(uint32(x))), 'f', -1, 32)
+		j.buf = strconv.AppendFloat(j.buf, float64(math.Float32frombits(uint32(x))), 'f', -1, 32)
 	case metadata.Int32Kind, metadata.Int64Kind, metadata.Sfixed32Kind, metadata.Sfixed64Kind:
-		buf = strconv.AppendInt(buf, int64(x), 10)
+		j.buf = strconv.AppendInt(j.buf, int64(x), 10)
 	case metadata.Uint32Kind, metadata.Uint64Kind, metadata.Fixed32Kind, metadata.Fixed64Kind:
-		buf = strconv.AppendUint(buf, x, 10)
+		j.buf = strconv.AppendUint(j.buf, x, 10)
 	case metadata.Sint32Kind:
-		buf = strconv.AppendInt(buf, int64(protowire.DecodeZigZag(uint64(int64(int32(x))))), 10)
+		j.buf = strconv.AppendInt(j.buf, int64(protowire.DecodeZigZag(uint64(int64(int32(x))))), 10)
 	case metadata.Sint64Kind:
-		buf = strconv.AppendInt(buf, int64(protowire.DecodeZigZag(x)), 10)
+		j.buf = strconv.AppendInt(j.buf, int64(protowire.DecodeZigZag(x)), 10)
 	case metadata.BoolKind:
-		buf = strconv.AppendBool(buf, x != 0)
+		if x != 0 {
+			j.AppendString("true")
+		} else {
+			j.AppendString("false")
+		}
 	}
-	_, err := w.Write(buf)
-	return err
+	return nil
 }
 
 var wireTypeOfKind = [...]protowire.Type{
@@ -362,11 +331,8 @@ func getFieldWireType(field *metadata.Field) protowire.Type {
 	return protowire.BytesType
 }
 
-func transProtoMessage(w *bytes.Buffer, p *proto.Decoder, msg *metadata.Message) error {
-	err := w.WriteByte('{')
-	if err != nil {
-		return err
-	}
+func transProtoMessage(j *JsonBuilder, p *proto.Decoder, msg *metadata.Message) error {
+	j.AppendByte('{')
 
 	more := false
 	for !p.EOF() {
@@ -392,43 +358,33 @@ func transProtoMessage(w *bytes.Buffer, p *proto.Decoder, msg *metadata.Message)
 		if !more {
 			more = true
 		} else {
-			err = w.WriteByte(',')
-			if err != nil {
-				return err
-			}
+			j.AppendByte(',')
 		}
-		err = w.WriteByte('"')
-		if err != nil {
-			return err
-		}
-		_, err := w.Write(asBytes(field.Name))
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(asBytes("\":"))
-		if err != nil {
-			return err
-		}
+		j.AppendByte('"')
+		j.AppendString(field.Name)
+		j.AppendByte('"')
+		j.AppendByte(':')
 
+		var err error
 		if field.Repeated {
 			switch field.Kind {
 			case metadata.StringKind, metadata.BytesKind, metadata.MessageKind:
-				err = transProtoRepeatedBytes(w, p, field, val.s)
+				err = transProtoRepeatedBytes(j, p, field, val.s)
 			default:
-				err = transProtoPackedArray(w, p, field)
+				err = transProtoPackedArray(j, p, field)
 			}
 		} else if field.Kind == metadata.MapKind {
-			err = transProtoMap(w, p, field, val.s)
+			err = transProtoMap(j, p, field, val.s)
 		} else {
 			switch field.Kind {
 			case metadata.StringKind:
-				err = transProtoString(w, val.s)
+				err = transProtoString(j, val.s)
 			case metadata.BytesKind:
-				err = transProtoBytes(w, val.s)
+				err = transProtoBytes(j, val.s)
 			case metadata.MessageKind:
-				err = transProtoMessage(w, proto.NewDecoder(val.s), field.Ref)
+				err = transProtoMessage(j, proto.NewDecoder(val.s), field.Ref)
 			default:
-				err = transProtoSimpleValue(w, field.Kind, val.x)
+				err = transProtoSimpleValue(j, field.Kind, val.x)
 			}
 		}
 		if err != nil {
@@ -436,9 +392,10 @@ func transProtoMessage(w *bytes.Buffer, p *proto.Decoder, msg *metadata.Message)
 		}
 	}
 
-	return w.WriteByte('}')
+	j.AppendByte('}')
+	return nil
 }
 
-func TranscodeToJson(w *bytes.Buffer, p *proto.Decoder, msg *metadata.Message) error {
-	return transProtoMessage(w, p, msg)
+func TranscodeToJson(j *JsonBuilder, p *proto.Decoder, msg *metadata.Message) error {
+	return transProtoMessage(j, p, msg)
 }

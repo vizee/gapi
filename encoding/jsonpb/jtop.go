@@ -90,7 +90,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 		switch field.Kind {
 		case metadata.DoubleKind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseFloat(bytesView(s), 64)
+				x, err := strconv.ParseFloat(asString(s), 64)
 				if err != nil {
 					return err
 				}
@@ -99,7 +99,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 			})
 		case metadata.FloatKind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseFloat(bytesView(s), 32)
+				x, err := strconv.ParseFloat(asString(s), 32)
 				if err != nil {
 					return err
 				}
@@ -108,7 +108,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 			})
 		case metadata.Int32Kind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseInt(bytesView(s), 10, 32)
+				x, err := strconv.ParseInt(asString(s), 10, 32)
 				if err != nil {
 					return err
 				}
@@ -117,7 +117,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 			})
 		case metadata.Int64Kind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseInt(bytesView(s), 10, 64)
+				x, err := strconv.ParseInt(asString(s), 10, 64)
 				if err != nil {
 					return err
 				}
@@ -126,7 +126,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 			})
 		case metadata.Uint32Kind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseUint(bytesView(s), 10, 32)
+				x, err := strconv.ParseUint(asString(s), 10, 32)
 				if err != nil {
 					return err
 				}
@@ -135,7 +135,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 			})
 		case metadata.Uint64Kind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseUint(bytesView(s), 10, 64)
+				x, err := strconv.ParseUint(asString(s), 10, 64)
 				if err != nil {
 					return err
 				}
@@ -144,7 +144,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 			})
 		case metadata.Sint32Kind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseInt(bytesView(s), 10, 32)
+				x, err := strconv.ParseInt(asString(s), 10, 32)
 				if err != nil {
 					return err
 				}
@@ -153,7 +153,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 			})
 		case metadata.Sint64Kind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseInt(bytesView(s), 10, 64)
+				x, err := strconv.ParseInt(asString(s), 10, 64)
 				if err != nil {
 					return err
 				}
@@ -162,7 +162,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 			})
 		case metadata.Fixed32Kind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseUint(bytesView(s), 10, 32)
+				x, err := strconv.ParseUint(asString(s), 10, 32)
 				if err != nil {
 					return err
 				}
@@ -171,7 +171,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 			})
 		case metadata.Fixed64Kind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseUint(bytesView(s), 10, 64)
+				x, err := strconv.ParseUint(asString(s), 10, 64)
 				if err != nil {
 					return err
 				}
@@ -180,7 +180,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 			})
 		case metadata.Sfixed32Kind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseInt(bytesView(s), 10, 32)
+				x, err := strconv.ParseInt(asString(s), 10, 32)
 				if err != nil {
 					return err
 				}
@@ -189,7 +189,7 @@ func transJsonArrayField(p *proto.Encoder, j *JsonIter, field *metadata.Field) e
 			})
 		case metadata.Sfixed64Kind:
 			err = walkJsonArray(j, jsonlit.Number, func(s []byte) error {
-				x, err := strconv.ParseInt(bytesView(s), 10, 64)
+				x, err := strconv.ParseInt(asString(s), 10, 64)
 				if err != nil {
 					return err
 				}
@@ -283,73 +283,73 @@ func transJsonNumeric(p *proto.Encoder, tag uint32, kind metadata.Kind, s []byte
 	}
 	switch kind {
 	case metadata.DoubleKind:
-		x, err := strconv.ParseFloat(bytesView(s), 64)
+		x, err := strconv.ParseFloat(asString(s), 64)
 		if err != nil {
 			return err
 		}
 		p.EmitFixed64(tag, math.Float64bits(x))
 	case metadata.FloatKind:
-		x, err := strconv.ParseFloat(bytesView(s), 32)
+		x, err := strconv.ParseFloat(asString(s), 32)
 		if err != nil {
 			return err
 		}
 		p.EmitFixed32(tag, math.Float32bits(float32(x)))
 	case metadata.Int32Kind:
-		x, err := strconv.ParseInt(bytesView(s), 10, 32)
+		x, err := strconv.ParseInt(asString(s), 10, 32)
 		if err != nil {
 			return err
 		}
 		p.EmitVarint(tag, uint64(x))
 	case metadata.Int64Kind:
-		x, err := strconv.ParseInt(bytesView(s), 10, 64)
+		x, err := strconv.ParseInt(asString(s), 10, 64)
 		if err != nil {
 			return err
 		}
 		p.EmitVarint(tag, uint64(x))
 	case metadata.Uint32Kind:
-		x, err := strconv.ParseUint(bytesView(s), 10, 32)
+		x, err := strconv.ParseUint(asString(s), 10, 32)
 		if err != nil {
 			return err
 		}
 		p.EmitVarint(tag, uint64(x))
 	case metadata.Uint64Kind:
-		x, err := strconv.ParseUint(bytesView(s), 10, 64)
+		x, err := strconv.ParseUint(asString(s), 10, 64)
 		if err != nil {
 			return err
 		}
 		p.EmitVarint(tag, x)
 	case metadata.Sint32Kind:
-		x, err := strconv.ParseInt(bytesView(s), 10, 32)
+		x, err := strconv.ParseInt(asString(s), 10, 32)
 		if err != nil {
 			return err
 		}
 		p.EmitZigzag(tag, x)
 	case metadata.Sint64Kind:
-		x, err := strconv.ParseInt(bytesView(s), 10, 64)
+		x, err := strconv.ParseInt(asString(s), 10, 64)
 		if err != nil {
 			return err
 		}
 		p.EmitZigzag(tag, x)
 	case metadata.Fixed32Kind:
-		x, err := strconv.ParseUint(bytesView(s), 10, 32)
+		x, err := strconv.ParseUint(asString(s), 10, 32)
 		if err != nil {
 			return err
 		}
 		p.EmitFixed32(tag, uint32(x))
 	case metadata.Fixed64Kind:
-		x, err := strconv.ParseUint(bytesView(s), 10, 64)
+		x, err := strconv.ParseUint(asString(s), 10, 64)
 		if err != nil {
 			return err
 		}
 		p.EmitFixed64(tag, x)
 	case metadata.Sfixed32Kind:
-		x, err := strconv.ParseInt(bytesView(s), 10, 32)
+		x, err := strconv.ParseInt(asString(s), 10, 32)
 		if err != nil {
 			return err
 		}
 		p.EmitFixed32(tag, uint32(x))
 	case metadata.Sfixed64Kind:
-		x, err := strconv.ParseInt(bytesView(s), 10, 64)
+		x, err := strconv.ParseInt(asString(s), 10, 64)
 		if err != nil {
 			return err
 		}
@@ -488,7 +488,7 @@ func transJsonObject(p *proto.Encoder, j *JsonIter, msg *metadata.Message) error
 		default:
 			if len(key) != 0 {
 				// 暂不转义 key
-				field := msg.FieldByName(bytesView(key[1 : len(key)-1]))
+				field := msg.FieldByName(asString(key[1 : len(key)-1]))
 				if field != nil {
 					err := transJsonField(p, j, field, lead, s)
 					if err != nil {
