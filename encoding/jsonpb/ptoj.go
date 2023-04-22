@@ -145,16 +145,10 @@ func transProtoMap(j *JsonBuilder, p *proto.Decoder, field *metadata.Field, s []
 
 		if assigned&1 != 0 {
 			if keyField.Kind == metadata.StringKind {
-				err := transProtoString(j, values[0].s)
-				if err != nil {
-					return err
-				}
+				transProtoString(j, values[0].s)
 			} else {
 				j.AppendByte('"')
-				err := transProtoSimpleValue(j, field.Kind, values[0].x)
-				if err != nil {
-					return err
-				}
+				transProtoSimpleValue(j, field.Kind, values[0].x)
 				j.AppendByte('"')
 			}
 		} else {
@@ -164,19 +158,18 @@ func transProtoMap(j *JsonBuilder, p *proto.Decoder, field *metadata.Field, s []
 		j.AppendByte(':')
 
 		if assigned&2 != 0 {
-			var err error
 			switch valueField.Kind {
 			case metadata.StringKind:
-				err = transProtoString(j, values[1].s)
+				transProtoString(j, values[1].s)
 			case metadata.BytesKind:
-				err = transProtoBytes(j, values[1].s)
+				transProtoBytes(j, values[1].s)
 			case metadata.MessageKind:
-				err = transProtoMessage(j, proto.NewDecoder(values[1].s), valueField.Ref)
+				err := transProtoMessage(j, proto.NewDecoder(values[1].s), valueField.Ref)
+				if err != nil {
+					return err
+				}
 			default:
-				err = transProtoSimpleValue(j, field.Kind, values[1].x)
-			}
-			if err != nil {
-				return err
+				transProtoSimpleValue(j, field.Kind, values[1].x)
 			}
 		} else {
 			writeDefaultValue(j, valueField.Repeated, valueField.Kind)
@@ -219,15 +212,9 @@ func transProtoRepeatedBytes(j *JsonBuilder, p *proto.Decoder, field *metadata.F
 
 		switch field.Kind {
 		case metadata.StringKind:
-			err := transProtoString(j, s)
-			if err != nil {
-				return err
-			}
+			transProtoString(j, s)
 		case metadata.BytesKind:
-			err := transProtoBytes(j, s)
-			if err != nil {
-				return err
-			}
+			transProtoBytes(j, s)
 		case metadata.MessageKind:
 			err := transProtoMessage(j, proto.NewDecoder(s), field.Ref)
 			if err != nil {
@@ -274,17 +261,14 @@ func transProtoPackedArray(j *JsonBuilder, p *proto.Decoder, field *metadata.Fie
 		if e < 0 {
 			return protowire.ParseError(e)
 		}
-		err := transProtoSimpleValue(j, field.Kind, val.x)
-		if err != nil {
-			return err
-		}
+		transProtoSimpleValue(j, field.Kind, val.x)
 	}
 
 	j.AppendByte(']')
 	return nil
 }
 
-func transProtoBytes(j *JsonBuilder, s []byte) error {
+func transProtoBytes(j *JsonBuilder, s []byte) {
 	j.AppendByte('"')
 	n := base64.StdEncoding.EncodedLen(len(s))
 	j.Reserve(n)
@@ -293,30 +277,28 @@ func transProtoBytes(j *JsonBuilder, s []byte) error {
 	base64.StdEncoding.Encode(d, s)
 	j.buf = j.buf[:m+n]
 	j.AppendByte('"')
-	return nil
 }
 
-func transProtoString(j *JsonBuilder, s []byte) error {
+func transProtoString(j *JsonBuilder, s []byte) {
 	j.AppendByte('"')
 	j.AppendEscapedString(asString(s))
 	j.AppendByte('"')
-	return nil
 }
 
-func transProtoSimpleValue(j *JsonBuilder, kind metadata.Kind, x uint64) error {
+func transProtoSimpleValue(j *JsonBuilder, kind metadata.Kind, x uint64) {
 	switch kind {
 	case metadata.DoubleKind:
 		j.buf = strconv.AppendFloat(j.buf, math.Float64frombits(x), 'f', -1, 64)
 	case metadata.FloatKind:
 		j.buf = strconv.AppendFloat(j.buf, float64(math.Float32frombits(uint32(x))), 'f', -1, 32)
-	case metadata.Int32Kind, metadata.Int64Kind, metadata.Sfixed32Kind, metadata.Sfixed64Kind:
+	case metadata.Int32Kind, metadata.Int64Kind, metadata.Sfixed64Kind:
 		j.buf = strconv.AppendInt(j.buf, int64(x), 10)
 	case metadata.Uint32Kind, metadata.Uint64Kind, metadata.Fixed32Kind, metadata.Fixed64Kind:
 		j.buf = strconv.AppendUint(j.buf, x, 10)
-	case metadata.Sint32Kind:
-		j.buf = strconv.AppendInt(j.buf, int64(protowire.DecodeZigZag(uint64(int64(int32(x))))), 10)
-	case metadata.Sint64Kind:
-		j.buf = strconv.AppendInt(j.buf, int64(protowire.DecodeZigZag(x)), 10)
+	case metadata.Sint32Kind, metadata.Sint64Kind:
+		j.buf = strconv.AppendInt(j.buf, protowire.DecodeZigZag(x), 10)
+	case metadata.Sfixed32Kind:
+		j.buf = strconv.AppendInt(j.buf, int64(int32(x)), 10)
 	case metadata.BoolKind:
 		if x != 0 {
 			j.AppendString("true")
@@ -324,7 +306,6 @@ func transProtoSimpleValue(j *JsonBuilder, kind metadata.Kind, x uint64) error {
 			j.AppendString("false")
 		}
 	}
-	return nil
 }
 
 func transProtoMessage(j *JsonBuilder, p *proto.Decoder, msg *metadata.Message) error {
@@ -383,13 +364,13 @@ func transProtoMessage(j *JsonBuilder, p *proto.Decoder, msg *metadata.Message) 
 		} else {
 			switch field.Kind {
 			case metadata.StringKind:
-				err = transProtoString(j, val.s)
+				transProtoString(j, val.s)
 			case metadata.BytesKind:
-				err = transProtoBytes(j, val.s)
+				transProtoBytes(j, val.s)
 			case metadata.MessageKind:
 				err = transProtoMessage(j, proto.NewDecoder(val.s), field.Ref)
 			default:
-				err = transProtoSimpleValue(j, field.Kind, val.x)
+				transProtoSimpleValue(j, field.Kind, val.x)
 			}
 		}
 		if err != nil {
