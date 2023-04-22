@@ -80,7 +80,7 @@ func (m *Message) BakeTagIndex() {
 	m.tagIdx = tagIdx
 }
 
-func (m *Message) FieldByTag(tag uint32) *Field {
+func (m *Message) FieldIndexByTag(tag uint32) int {
 	if len(m.tagIdx) == len(m.Fields) {
 		l, r := 0, len(m.tagIdx)-1
 		for l <= r {
@@ -88,7 +88,7 @@ func (m *Message) FieldByTag(tag uint32) *Field {
 			i := m.tagIdx[mid]
 			x := m.Fields[i].Tag
 			if x == tag {
-				return &m.Fields[i]
+				return i
 			} else if x > tag {
 				r = mid - 1
 			} else {
@@ -98,14 +98,22 @@ func (m *Message) FieldByTag(tag uint32) *Field {
 	} else if int(tag) < len(m.tagIdx) {
 		idx := m.tagIdx[tag]
 		if idx >= 0 {
-			return &m.Fields[idx]
+			return idx
 		}
 	} else {
 		for i := 0; i < len(m.Fields); i++ {
 			if m.Fields[i].Tag == tag {
-				return &m.Fields[i]
+				return i
 			}
 		}
+	}
+	return -1
+}
+
+func (m *Message) FieldByTag(tag uint32) *Field {
+	idx := m.FieldIndexByTag(tag)
+	if idx >= 0 {
+		return &m.Fields[idx]
 	}
 	return nil
 }
@@ -135,9 +143,10 @@ func (m *Message) FieldByName(name string) *Field {
 }
 
 type Field struct {
-	Name     string
-	Kind     Kind
-	Ref      *Message
-	Tag      uint32
-	Repeated bool
+	Name      string
+	Kind      Kind
+	Ref       *Message
+	Tag       uint32
+	Repeated  bool
+	OmitEmpty bool
 }

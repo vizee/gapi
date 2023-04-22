@@ -38,6 +38,36 @@ func readProtoValue(p *proto.Decoder, wire protowire.Type) (val protoValue, e in
 	return
 }
 
+var wireTypeOfKind = [...]protowire.Type{
+	metadata.DoubleKind:   protowire.Fixed64Type,
+	metadata.FloatKind:    protowire.Fixed32Type,
+	metadata.Int32Kind:    protowire.VarintType,
+	metadata.Int64Kind:    protowire.VarintType,
+	metadata.Uint32Kind:   protowire.VarintType,
+	metadata.Uint64Kind:   protowire.VarintType,
+	metadata.Sint32Kind:   protowire.VarintType,
+	metadata.Sint64Kind:   protowire.VarintType,
+	metadata.Fixed32Kind:  protowire.Fixed32Type,
+	metadata.Fixed64Kind:  protowire.Fixed64Type,
+	metadata.Sfixed32Kind: protowire.Fixed32Type,
+	metadata.Sfixed64Kind: protowire.Fixed64Type,
+	metadata.BoolKind:     protowire.VarintType,
+	// metadata.StringKind:   protowire.BytesType,
+	// metadata.BytesKind:    protowire.BytesType,
+	// metadata.MapKind:      protowire.BytesType,
+	// metadata.MessageKind:  protowire.BytesType,
+}
+
+func getFieldWireType(field *metadata.Field) protowire.Type {
+	if field.Repeated {
+		// 如果字段设置 repeated，那么值应该是 packed/string/bytes/message，所以 wire 一定是 BytesType
+		return protowire.BytesType
+	} else if int(field.Kind) < len(wireTypeOfKind) {
+		return wireTypeOfKind[field.Kind]
+	}
+	return protowire.BytesType
+}
+
 var defaultValues = [...]string{
 	metadata.DoubleKind:   `0`,
 	metadata.FloatKind:    `0`,
@@ -58,13 +88,12 @@ var defaultValues = [...]string{
 	metadata.MessageKind:  `{}`,
 }
 
-func writeDefaultValue(j *JsonBuilder, repeated bool, kind metadata.Kind) (err error) {
+func writeDefaultValue(j *JsonBuilder, repeated bool, kind metadata.Kind) {
 	if repeated {
 		j.AppendString("[]")
 	} else {
 		j.AppendString(defaultValues[kind])
 	}
-	return
 }
 
 func transProtoMap(j *JsonBuilder, p *proto.Decoder, field *metadata.Field, s []byte) error {
@@ -150,10 +179,7 @@ func transProtoMap(j *JsonBuilder, p *proto.Decoder, field *metadata.Field, s []
 				return err
 			}
 		} else {
-			err := writeDefaultValue(j, valueField.Repeated, valueField.Kind)
-			if err != nil {
-				return err
-			}
+			writeDefaultValue(j, valueField.Repeated, valueField.Kind)
 		}
 
 		if p.EOF() {
@@ -301,38 +327,12 @@ func transProtoSimpleValue(j *JsonBuilder, kind metadata.Kind, x uint64) error {
 	return nil
 }
 
-var wireTypeOfKind = [...]protowire.Type{
-	metadata.DoubleKind:   protowire.Fixed64Type,
-	metadata.FloatKind:    protowire.Fixed32Type,
-	metadata.Int32Kind:    protowire.VarintType,
-	metadata.Int64Kind:    protowire.VarintType,
-	metadata.Uint32Kind:   protowire.VarintType,
-	metadata.Uint64Kind:   protowire.VarintType,
-	metadata.Sint32Kind:   protowire.VarintType,
-	metadata.Sint64Kind:   protowire.VarintType,
-	metadata.Fixed32Kind:  protowire.Fixed32Type,
-	metadata.Fixed64Kind:  protowire.Fixed64Type,
-	metadata.Sfixed32Kind: protowire.Fixed32Type,
-	metadata.Sfixed64Kind: protowire.Fixed64Type,
-	metadata.BoolKind:     protowire.VarintType,
-	// metadata.StringKind:   protowire.BytesType,
-	// metadata.BytesKind:    protowire.BytesType,
-	// metadata.MapKind:      protowire.BytesType,
-	// metadata.MessageKind:  protowire.BytesType,
-}
-
-func getFieldWireType(field *metadata.Field) protowire.Type {
-	if field.Repeated {
-		// 如果字段设置 repeated，那么值应该是 packed/string/bytes/message，所以 wire 一定是 BytesType
-		return protowire.BytesType
-	} else if int(field.Kind) < len(wireTypeOfKind) {
-		return wireTypeOfKind[field.Kind]
-	}
-	return protowire.BytesType
-}
-
 func transProtoMessage(j *JsonBuilder, p *proto.Decoder, msg *metadata.Message) error {
 	j.AppendByte('{')
+
+	var pre [32]bool
+
+	emitted := pre[:0]
 
 	more := false
 	for !p.EOF() {
@@ -346,13 +346,18 @@ func transProtoMessage(j *JsonBuilder, p *proto.Decoder, msg *metadata.Message) 
 			return protowire.ParseError(e)
 		}
 
-		field := msg.FieldByTag(tag)
-		if field == nil {
+		fieldIdx := msg.FieldIndexByTag(tag)
+		if fieldIdx < 0 {
 			continue
 		}
+		field := &msg.Fields[fieldIdx]
 		expectedWire := getFieldWireType(field)
 		if expectedWire != wire {
 			return ErrInvalidWireType
+		}
+
+		if emitted[fieldIdx] {
+			continue
 		}
 
 		if !more {
@@ -390,6 +395,25 @@ func transProtoMessage(j *JsonBuilder, p *proto.Decoder, msg *metadata.Message) 
 		if err != nil {
 			return err
 		}
+
+		emitted[fieldIdx] = true
+	}
+
+	for i := range msg.Fields {
+		field := &msg.Fields[i]
+		if emitted[i] || field.OmitEmpty {
+			continue
+		}
+		if !more {
+			more = true
+		} else {
+			j.AppendByte(',')
+		}
+		j.AppendByte('"')
+		j.AppendString(field.Name)
+		j.AppendByte('"')
+		j.AppendByte(':')
+		writeDefaultValue(j, field.Repeated, field.Kind)
 	}
 
 	j.AppendByte('}')
