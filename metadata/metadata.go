@@ -6,10 +6,10 @@ import (
 	"github.com/vizee/jsonpb"
 )
 
-type BindType uint32
+type BindSource uint32
 
 const (
-	BindDefault BindType = iota
+	BindDefault BindSource = iota
 	BindQuery
 	BindParams
 	BindHeader
@@ -20,21 +20,17 @@ type FieldBinding struct {
 	Name string
 	Kind jsonpb.Kind
 	Tag  uint32
-	Bind BindType
-}
-
-type Message struct {
-	*jsonpb.Message
-	Bindings []FieldBinding // 只有顶级消息支持 Bindings
+	Bind BindSource
 }
 
 type Call struct {
-	Server  string
-	Handler string
-	Name    string
-	In      *Message
-	Out     *Message
-	Timeout time.Duration
+	Server   string
+	Handler  string
+	Name     string
+	In       *jsonpb.Message
+	Bindings []FieldBinding // 仅支持从参数提取 Bindings
+	Out      *jsonpb.Message
+	Timeout  time.Duration
 }
 
 type Route struct {

@@ -31,10 +31,6 @@ func (p *Parser) leave() {
 	p.prefix = "." + strings.Join(p.ns, ".")
 }
 
-func (p *Parser) getFullName(name string) string {
-	return p.prefix + name
-}
-
 func (p *Parser) getMessage(fullName string) *MessageDesc {
 	msg := p.msgs[fullName]
 	if msg == nil {

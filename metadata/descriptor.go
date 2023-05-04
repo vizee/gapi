@@ -11,13 +11,18 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-type MessageCache struct {
-	cache map[string]*Message
+type messageDesc struct {
+	*jsonpb.Message
+	bindings []FieldBinding
 }
 
-func (mc *MessageCache) Resolve(md *descriptor.MessageDesc) *Message {
+type MessageCache struct {
+	cache map[string]*messageDesc
+}
+
+func (mc *MessageCache) Resolve(md *descriptor.MessageDesc) *messageDesc {
 	if mc.cache == nil {
-		mc.cache = make(map[string]*Message)
+		mc.cache = make(map[string]*messageDesc)
 	}
 
 	msg := mc.cache[md.Name]
@@ -25,7 +30,7 @@ func (mc *MessageCache) Resolve(md *descriptor.MessageDesc) *Message {
 		return msg
 	}
 
-	msg = &Message{
+	msg = &messageDesc{
 		Message: &jsonpb.Message{
 			Name:   md.Name,
 			Fields: make([]jsonpb.Field, 0, len(md.Fields)),
@@ -54,16 +59,20 @@ func (mc *MessageCache) Resolve(md *descriptor.MessageDesc) *Message {
 					repeated = false
 				}
 			}
+			omit := jsonpb.OmitProtoEmpty
+			if fd.OmitEmpty {
+				omit = jsonpb.OmitEmpty
+			}
 			msg.Fields = append(msg.Fields, jsonpb.Field{
-				Name:      name,
-				Kind:      kind,
-				Ref:       msgRef,
-				Tag:       uint32(fd.Tag),
-				Repeated:  repeated,
-				OmitEmpty: fd.OmitEmpty,
+				Name:     name,
+				Kind:     kind,
+				Ref:      msgRef,
+				Tag:      uint32(fd.Tag),
+				Repeated: repeated,
+				Omit:     omit,
 			})
 		} else {
-			var bind BindType
+			var bind BindSource
 			switch fd.Bind {
 			case annotation.FIELD_BIND_FROM_QUERY:
 				bind = BindQuery
@@ -74,7 +83,7 @@ func (mc *MessageCache) Resolve(md *descriptor.MessageDesc) *Message {
 			case annotation.FIELD_BIND_FROM_CONTEXT:
 				bind = BindContext
 			}
-			msg.Bindings = append(msg.Bindings, FieldBinding{
+			msg.bindings = append(msg.bindings, FieldBinding{
 				Name: name,
 				Kind: kind,
 				Tag:  uint32(fd.Tag),
@@ -86,8 +95,8 @@ func (mc *MessageCache) Resolve(md *descriptor.MessageDesc) *Message {
 	msg.BakeTagIndex()
 	msg.BakeNameIndex()
 
-	if len(msg.Bindings) > 0 {
-		msg.Bindings = slices.Shrink(msg.Bindings)
+	if len(msg.bindings) > 0 {
+		msg.bindings = slices.Shrink(msg.bindings)
 	}
 
 	return msg
@@ -122,17 +131,19 @@ func ResolveDescToRoutes(mc *MessageCache, sds []*descriptor.ServiceDesc, skipIn
 				timeout = sd.Opts.DefaultTimeout
 			}
 
+			inMsg := mc.Resolve(md.In)
 			routes = append(routes, Route{
 				Method: md.Opts.Method,
 				Path:   md.Opts.Path,
 				Use:    slices.Merge(sd.Opts.Use, md.Opts.Use),
 				Call: &Call{
-					Server:  server,
-					Handler: handler,
-					Name:    md.Name,
-					In:      mc.Resolve(md.In),
-					Out:     mc.Resolve(md.Out),
-					Timeout: time.Duration(timeout) * time.Millisecond,
+					Server:   server,
+					Handler:  handler,
+					Name:     md.Name,
+					In:       inMsg.Message,
+					Bindings: inMsg.bindings,
+					Out:      mc.Resolve(md.Out).Message,
+					Timeout:  time.Duration(timeout) * time.Millisecond,
 				},
 			})
 		}
