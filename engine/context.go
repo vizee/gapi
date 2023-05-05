@@ -2,24 +2,14 @@ package engine
 
 import (
 	"net/http"
+
+	"github.com/julienschmidt/httprouter"
 )
 
-type HandleFunc func(ctx *Context) error
-
-type Param struct {
-	Key   string
-	Value string
-}
-
-type Params []Param
+type Params httprouter.Params
 
 func (ps Params) Get(name string) string {
-	for _, p := range ps {
-		if p.Key == name {
-			return p.Value
-		}
-	}
-	return ""
+	return httprouter.Params(ps).ByName(name)
 }
 
 type Context struct {
@@ -28,6 +18,7 @@ type Context struct {
 	values map[string]string
 	params Params
 	chain  []HandleFunc
+	handle HandleFunc
 	next   int
 }
 
@@ -41,7 +32,7 @@ func (c *Context) Response() http.ResponseWriter {
 
 func (ctx *Context) Set(name string, value string) {
 	if ctx.values == nil {
-		ctx.values = map[string]string{}
+		ctx.values = make(map[string]string)
 	}
 	ctx.values[name] = value
 }
@@ -53,6 +44,19 @@ func (ctx *Context) Get(name string) (string, bool) {
 
 func (c *Context) Params() Params {
 	return c.params
+}
+
+func (c *Context) Next() error {
+	// 分开 chain 和 handle 为了让 chain 复用
+	if c.next == len(c.chain) {
+		c.next++
+		return c.handle(c)
+	} else if c.next < len(c.chain) {
+		h := c.chain[c.next]
+		c.next++
+		return h(c)
+	}
+	return nil
 }
 
 func (ctx *Context) reset() {

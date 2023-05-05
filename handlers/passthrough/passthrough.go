@@ -6,6 +6,8 @@ import (
 	"github.com/vizee/gapi/metadata"
 )
 
+var _ engine.CallHandler = &Handler{}
+
 type Handler struct {
 }
 

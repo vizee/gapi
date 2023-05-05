@@ -9,6 +9,8 @@ import (
 	"github.com/vizee/jsonpb/proto"
 )
 
+var _ engine.CallHandler = &Handler{}
+
 type Handler struct {
 	SurroundOutput []string
 }

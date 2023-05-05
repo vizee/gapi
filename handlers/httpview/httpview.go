@@ -8,6 +8,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var _ engine.CallHandler = &Handler{}
+
 type Handler struct {
 	PassPath      bool
 	PassQuery     bool
