@@ -103,8 +103,19 @@ func (mc *MessageCache) Resolve(md *descriptor.MessageDesc) *messageDesc {
 }
 
 func ResolveRoutes(mc *MessageCache, sds []*descriptor.ServiceDesc, ignoreError bool) ([]Route, error) {
-	var routes []Route
-
+	routesNum := 0
+	for _, sd := range sds {
+		if sd.Opts.Server == "" {
+			continue
+		}
+		for _, md := range sd.Methods {
+			if md.Opts.Method == "" || md.Opts.Path == "" {
+				continue
+			}
+			routesNum++
+		}
+	}
+	routes := make([]Route, 0, routesNum)
 walksd:
 	for _, sd := range sds {
 		server := sd.Opts.Server
@@ -153,7 +164,7 @@ walksd:
 			inMsg := mc.Resolve(md.In)
 			routes = append(routes, Route{
 				Method: md.Opts.Method,
-				Path:   md.Opts.Path,
+				Path:   sd.Opts.PathPrefix + md.Opts.Path,
 				Use:    slices.Merge(sd.Opts.Use, md.Opts.Use),
 				Call: &Call{
 					Server:   server,
@@ -189,29 +200,42 @@ func checkMiddlewareName(name string) bool {
 	return true
 }
 
-var typeKinds = [...]jsonpb.Kind{
-	descriptorpb.FieldDescriptorProto_TYPE_DOUBLE:   jsonpb.DoubleKind,
-	descriptorpb.FieldDescriptorProto_TYPE_FLOAT:    jsonpb.FloatKind,
-	descriptorpb.FieldDescriptorProto_TYPE_INT64:    jsonpb.Int64Kind,
-	descriptorpb.FieldDescriptorProto_TYPE_UINT64:   jsonpb.Uint64Kind,
-	descriptorpb.FieldDescriptorProto_TYPE_INT32:    jsonpb.Int32Kind,
-	descriptorpb.FieldDescriptorProto_TYPE_FIXED64:  jsonpb.Fixed64Kind,
-	descriptorpb.FieldDescriptorProto_TYPE_FIXED32:  jsonpb.Fixed32Kind,
-	descriptorpb.FieldDescriptorProto_TYPE_BOOL:     jsonpb.BoolKind,
-	descriptorpb.FieldDescriptorProto_TYPE_STRING:   jsonpb.StringKind,
-	descriptorpb.FieldDescriptorProto_TYPE_MESSAGE:  jsonpb.MessageKind,
-	descriptorpb.FieldDescriptorProto_TYPE_BYTES:    jsonpb.BytesKind,
-	descriptorpb.FieldDescriptorProto_TYPE_UINT32:   jsonpb.Uint32Kind,
-	descriptorpb.FieldDescriptorProto_TYPE_ENUM:     jsonpb.Int32Kind,
-	descriptorpb.FieldDescriptorProto_TYPE_SFIXED32: jsonpb.Sfixed32Kind,
-	descriptorpb.FieldDescriptorProto_TYPE_SFIXED64: jsonpb.Sfixed64Kind,
-	descriptorpb.FieldDescriptorProto_TYPE_SINT32:   jsonpb.Sint32Kind,
-	descriptorpb.FieldDescriptorProto_TYPE_SINT64:   jsonpb.Sint64Kind,
-}
-
 func getTypeKind(ty descriptorpb.FieldDescriptorProto_Type) (jsonpb.Kind, bool) {
-	if int(ty) < len(typeKinds) {
-		return typeKinds[ty], true
+	switch ty {
+	case descriptorpb.FieldDescriptorProto_TYPE_DOUBLE:
+		return jsonpb.DoubleKind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_FLOAT:
+		return jsonpb.FloatKind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_INT64:
+		return jsonpb.Int64Kind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_UINT64:
+		return jsonpb.Uint64Kind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_INT32:
+		return jsonpb.Int32Kind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_FIXED64:
+		return jsonpb.Fixed64Kind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_FIXED32:
+		return jsonpb.Fixed32Kind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_BOOL:
+		return jsonpb.BoolKind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_STRING:
+		return jsonpb.StringKind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_MESSAGE:
+		return jsonpb.MessageKind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_BYTES:
+		return jsonpb.BytesKind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_UINT32:
+		return jsonpb.Uint32Kind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_ENUM:
+		return jsonpb.Int32Kind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_SFIXED32:
+		return jsonpb.Sfixed32Kind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_SFIXED64:
+		return jsonpb.Sfixed64Kind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_SINT32:
+		return jsonpb.Sint32Kind, true
+	case descriptorpb.FieldDescriptorProto_TYPE_SINT64:
+		return jsonpb.Sint64Kind, true
 	}
 	return 0, false
 }
