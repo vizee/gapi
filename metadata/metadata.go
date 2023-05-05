@@ -26,10 +26,10 @@ type FieldBinding struct {
 type Call struct {
 	Server   string
 	Handler  string
-	Name     string
+	Method   string
 	In       *jsonpb.Message
-	Bindings []FieldBinding // 仅支持从参数提取 Bindings
 	Out      *jsonpb.Message
+	Bindings []FieldBinding // 仅支持从参数提取 Bindings
 	Timeout  time.Duration
 }
 

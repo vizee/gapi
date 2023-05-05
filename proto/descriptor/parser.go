@@ -132,7 +132,7 @@ func (p *Parser) parseService(sd *descriptorpb.ServiceDescriptorProto) error {
 	use, _ := proto.GetExtension(sd.Options, annotation.E_Use).([]string)
 	svc := &ServiceDesc{
 		Name:     sd.GetName(),
-		FullName: strings.TrimLeft(p.prefix, ".") + "." + sd.GetName(),
+		FullName: p.prefix + "." + sd.GetName(),
 		Opts: ServiceOptions{
 			Server:         getOption(proto.GetExtension(sd.Options, annotation.E_Server), ""),
 			DefaultHandler: getOption(proto.GetExtension(sd.Options, annotation.E_DefaultHandler), ""),

@@ -102,25 +102,44 @@ func (mc *MessageCache) Resolve(md *descriptor.MessageDesc) *messageDesc {
 	return msg
 }
 
-func ResolveDescToRoutes(mc *MessageCache, sds []*descriptor.ServiceDesc, skipInvalid bool) ([]Route, error) {
+func ResolveRoutes(mc *MessageCache, sds []*descriptor.ServiceDesc, ignoreError bool) ([]Route, error) {
 	var routes []Route
 
+walksd:
 	for _, sd := range sds {
 		server := sd.Opts.Server
 		if server == "" {
-			if skipInvalid {
+			if ignoreError {
 				continue
 			}
 			return nil, errors.New("invalid service '" + sd.Name + "'")
 		}
+		for _, use := range sd.Opts.Use {
+			if !checkMiddlewareName(use) {
+				if ignoreError {
+					continue walksd
+				}
+				return nil, errors.New("invalid middleware name '" + use + "'")
+			}
+		}
 
+	walkmd:
 		for _, md := range sd.Methods {
+			for _, use := range md.Opts.Use {
+				if !checkMiddlewareName(use) {
+					if ignoreError {
+						continue walkmd
+					}
+					return nil, errors.New("invalid middleware name '" + use + "'")
+				}
+			}
+
 			handler := md.Opts.Handler
 			if handler == "" {
 				handler = sd.Opts.DefaultHandler
 			}
 			if handler == "" || md.Opts.Method == "" || md.Opts.Path == "" || md.In == nil || md.In.Incomplete || md.Out == nil || md.Out.Incomplete {
-				if skipInvalid {
+				if ignoreError {
 					continue
 				}
 				return nil, errors.New("invalid method '" + md.Name + "'")
@@ -139,10 +158,10 @@ func ResolveDescToRoutes(mc *MessageCache, sds []*descriptor.ServiceDesc, skipIn
 				Call: &Call{
 					Server:   server,
 					Handler:  handler,
-					Name:     md.Name,
+					Method:   md.Name,
 					In:       inMsg.Message,
-					Bindings: inMsg.bindings,
 					Out:      mc.Resolve(md.Out).Message,
+					Bindings: inMsg.bindings,
 					Timeout:  time.Duration(timeout) * time.Millisecond,
 				},
 			})
@@ -152,41 +171,47 @@ func ResolveDescToRoutes(mc *MessageCache, sds []*descriptor.ServiceDesc, skipIn
 	return routes, nil
 }
 
+func checkMiddlewareName(name string) bool {
+	if name == "" {
+		return false
+	}
+
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		if 'a' <= c && c <= 'z' ||
+			'A' <= c && c <= 'Z' ||
+			'0' <= c && c <= '9' ||
+			c == '_' || c == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+var typeKinds = [...]jsonpb.Kind{
+	descriptorpb.FieldDescriptorProto_TYPE_DOUBLE:   jsonpb.DoubleKind,
+	descriptorpb.FieldDescriptorProto_TYPE_FLOAT:    jsonpb.FloatKind,
+	descriptorpb.FieldDescriptorProto_TYPE_INT64:    jsonpb.Int64Kind,
+	descriptorpb.FieldDescriptorProto_TYPE_UINT64:   jsonpb.Uint64Kind,
+	descriptorpb.FieldDescriptorProto_TYPE_INT32:    jsonpb.Int32Kind,
+	descriptorpb.FieldDescriptorProto_TYPE_FIXED64:  jsonpb.Fixed64Kind,
+	descriptorpb.FieldDescriptorProto_TYPE_FIXED32:  jsonpb.Fixed32Kind,
+	descriptorpb.FieldDescriptorProto_TYPE_BOOL:     jsonpb.BoolKind,
+	descriptorpb.FieldDescriptorProto_TYPE_STRING:   jsonpb.StringKind,
+	descriptorpb.FieldDescriptorProto_TYPE_MESSAGE:  jsonpb.MessageKind,
+	descriptorpb.FieldDescriptorProto_TYPE_BYTES:    jsonpb.BytesKind,
+	descriptorpb.FieldDescriptorProto_TYPE_UINT32:   jsonpb.Uint32Kind,
+	descriptorpb.FieldDescriptorProto_TYPE_ENUM:     jsonpb.Int32Kind,
+	descriptorpb.FieldDescriptorProto_TYPE_SFIXED32: jsonpb.Sfixed32Kind,
+	descriptorpb.FieldDescriptorProto_TYPE_SFIXED64: jsonpb.Sfixed64Kind,
+	descriptorpb.FieldDescriptorProto_TYPE_SINT32:   jsonpb.Sint32Kind,
+	descriptorpb.FieldDescriptorProto_TYPE_SINT64:   jsonpb.Sint64Kind,
+}
+
 func getTypeKind(ty descriptorpb.FieldDescriptorProto_Type) (jsonpb.Kind, bool) {
-	switch ty {
-	case descriptorpb.FieldDescriptorProto_TYPE_DOUBLE:
-		return jsonpb.DoubleKind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_FLOAT:
-		return jsonpb.FloatKind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_INT64:
-		return jsonpb.Int64Kind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_UINT64:
-		return jsonpb.Uint64Kind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_INT32,
-		descriptorpb.FieldDescriptorProto_TYPE_ENUM:
-		return jsonpb.Int32Kind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_FIXED64:
-		return jsonpb.Fixed64Kind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_FIXED32:
-		return jsonpb.Fixed32Kind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_BOOL:
-		return jsonpb.BoolKind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_STRING:
-		return jsonpb.StringKind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_MESSAGE:
-		return jsonpb.MessageKind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_BYTES:
-		return jsonpb.BytesKind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_UINT32:
-		return jsonpb.Uint32Kind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_SFIXED32:
-		return jsonpb.Sfixed32Kind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_SFIXED64:
-		return jsonpb.Sfixed64Kind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_SINT32:
-		return jsonpb.Sint32Kind, true
-	case descriptorpb.FieldDescriptorProto_TYPE_SINT64:
-		return jsonpb.Sint64Kind, true
+	if int(ty) < len(typeKinds) {
+		return typeKinds[ty], true
 	}
 	return 0, false
 }
