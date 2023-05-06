@@ -22,6 +22,7 @@ func TestReadLimited(t *testing.T) {
 		{name: "empty", args: args{}, want: []byte(``)},
 		{name: "limited", args: args{r: strings.NewReader(`abc`), limit: 1}, want: []byte(`a`)},
 		{name: "no_alloc", args: args{r: strings.NewReader(`abc`), n: 3, limit: 3}, want: []byte(`abc`)},
+		{name: "oversize", args: args{r: strings.NewReader(`abc`), n: 13, limit: 32}, want: []byte(`abc`)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

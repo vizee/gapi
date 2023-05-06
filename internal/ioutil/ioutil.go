@@ -5,7 +5,7 @@ import (
 )
 
 func ReadLimited(r io.Reader, n int64, limit int64) ([]byte, error) {
-	const initSize = 512
+	const initSize = 64
 	if n < initSize {
 		n = initSize
 	}
@@ -31,7 +31,7 @@ func ReadLimited(r io.Reader, n int64, limit int64) ([]byte, error) {
 			if err == io.EOF {
 				err = nil
 			}
-			return buf, err
+			return buf[:i], err
 		}
 	}
 	return buf, nil
