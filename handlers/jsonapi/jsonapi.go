@@ -12,7 +12,7 @@ import (
 var _ engine.CallHandler = &Handler{}
 
 type Handler struct {
-	SurroundOutput []string
+	SurroundOutput [2]string
 }
 
 func (h *Handler) ReadRequest(call *metadata.Call, ctx *engine.Context) ([]byte, error) {
@@ -36,16 +36,12 @@ func (h *Handler) ReadRequest(call *metadata.Call, ctx *engine.Context) ([]byte,
 
 func (h *Handler) WriteResponse(call *metadata.Call, ctx *engine.Context, data []byte) error {
 	var j jsonpb.JsonBuilder
-	if len(h.SurroundOutput) > 0 {
-		j.AppendString(h.SurroundOutput[0])
-	}
+	j.AppendString(h.SurroundOutput[0])
 	err := jsonpb.TranscodeToJson(&j, proto.NewDecoder(data), call.Out)
 	if err != nil {
 		return err
 	}
-	if len(h.SurroundOutput) > 1 {
-		j.AppendString(h.SurroundOutput[1])
-	}
+	j.AppendString(h.SurroundOutput[1])
 
 	resp := ctx.Response()
 	resp.Header().Set("Content-Type", "application/json")

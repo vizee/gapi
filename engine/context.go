@@ -8,8 +8,13 @@ import (
 
 type Params httprouter.Params
 
-func (ps Params) Get(name string) string {
-	return httprouter.Params(ps).ByName(name)
+func (ps Params) Get(name string) (string, bool) {
+	for i := range ps {
+		if ps[i].Key == name {
+			return ps[i].Value, true
+		}
+	}
+	return "", false
 }
 
 type Context struct {
@@ -65,5 +70,6 @@ func (ctx *Context) reset() {
 	ctx.values = nil
 	ctx.params = nil
 	ctx.chain = nil
+	ctx.handle = nil
 	ctx.next = 0
 }

@@ -37,45 +37,6 @@ type Engine struct {
 	routeLock sync.Mutex
 }
 
-func (e *Engine) Execute(w http.ResponseWriter, req *http.Request, params Params, chain []HandleFunc, handle HandleFunc) {
-	ctx := e.ctxpool.Get().(*Context)
-	ctx.req = req
-	ctx.resp = w
-	ctx.params = params
-	ctx.chain = chain
-	ctx.handle = handle
-
-	err := ctx.Next()
-	if err != nil {
-		log.Errorf("Execute %s: %v", req.URL.Path, err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}
-
-	ctx.reset()
-	e.ctxpool.Put(ctx)
-}
-
-func (e *Engine) handleNotFound(w http.ResponseWriter, req *http.Request) {
-	e.Execute(w, req, nil, e.uses, e.notFound)
-}
-
-func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	log.Debugf("Route %s %s", req.Method, req.URL.Path)
-
-	path := req.URL.Path
-	handle, ps, tsr := e.router.Load().Lookup(req.Method, path)
-	if handle != nil {
-		handle(w, req, ps)
-	} else if tsr && path != "/" {
-		log.Debugf("Trailing slash redirect %s", req.URL.Path)
-
-		req.URL.Path = path + "/"
-		http.Redirect(w, req, req.URL.String(), http.StatusMovedPermanently)
-	} else {
-		e.handleNotFound(w, req)
-	}
-}
-
 func (e *Engine) generateMiddlewareChain(cache map[string][]HandleFunc, middlewares []string) ([]HandleFunc, error) {
 	if len(middlewares) == 0 {
 		return e.uses, nil
@@ -188,4 +149,42 @@ func registerRoute(router *httprouter.Router, method string, path string, handle
 	}()
 	router.Handle(method, path, handle)
 	return
+}
+
+func (e *Engine) Execute(w http.ResponseWriter, req *http.Request, params Params, chain []HandleFunc, handle HandleFunc) {
+	ctx := e.ctxpool.Get().(*Context)
+	ctx.req = req
+	ctx.resp = w
+	ctx.params = params
+	ctx.chain = chain
+	ctx.handle = handle
+
+	err := ctx.Next()
+	if err != nil {
+		log.Errorf("Execute %s: %v", req.URL.Path, err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+
+	ctx.reset()
+	e.ctxpool.Put(ctx)
+}
+
+func (e *Engine) handleNotFound(w http.ResponseWriter, req *http.Request) {
+	e.Execute(w, req, nil, e.uses, e.notFound)
+}
+
+func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	log.Debugf("Route %s %s", req.Method, req.URL.Path)
+
+	path := req.URL.Path
+	handle, ps, tsr := e.router.Load().Lookup(req.Method, path)
+	if handle != nil {
+		handle(w, req, ps)
+	} else if tsr && path != "/" {
+		log.Debugf("Trailing slash redirect %s", req.URL.Path)
+		req.URL.Path = path + "/"
+		http.Redirect(w, req, req.URL.String(), http.StatusMovedPermanently)
+	} else {
+		e.handleNotFound(w, req)
+	}
 }
