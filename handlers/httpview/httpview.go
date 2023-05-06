@@ -1,4 +1,4 @@
-package httppb
+package httpview
 
 import (
 	"github.com/vizee/gapi-proto-go/gapi/httpview"
