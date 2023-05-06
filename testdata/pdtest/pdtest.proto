@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package gapi.examples.proto;
+package gapi.testdata.pdtest;
 
-option go_package = "github.com/vizee/gapi/examples/proto";
+option go_package = "github.com/vizee/gapi/testdata/pdtest";
 
 import "gapi/annotation.proto";
 

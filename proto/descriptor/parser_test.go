@@ -10,7 +10,7 @@ import (
 )
 
 func TestParseProtoDescriptor(t *testing.T) {
-	data, err := os.ReadFile("../../examples/proto/pdtest.pd")
+	data, err := os.ReadFile("../../testdata/pdtest/pdtest.pd")
 	if err != nil {
 		t.Fatal(err)
 	}
