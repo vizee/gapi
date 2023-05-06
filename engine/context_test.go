@@ -2,7 +2,6 @@ package engine
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"reflect"
 	"testing"
@@ -69,67 +68,67 @@ func TestContext_Next(t *testing.T) {
 	}{
 		{name: "handle", fields: fields{
 			handle: func(ctx *Context) error {
-				fmt.Println("handle")
+				t.Log("handle")
 				return nil
 			},
 		}},
 		{name: "chain", fields: fields{
 			chain: []HandleFunc{
 				func(ctx *Context) error {
-					fmt.Println("chain 0")
+					t.Log("chain 0")
 					return ctx.Next()
 				},
 				func(ctx *Context) error {
-					fmt.Println("chain 1")
+					t.Log("chain 1")
 					return ctx.Next()
 				},
 				func(ctx *Context) error {
-					fmt.Println("chain 2")
+					t.Log("chain 2")
 					return ctx.Next()
 				},
 			},
 			handle: func(ctx *Context) error {
-				fmt.Println("handle")
+				t.Log("handle")
 				return ctx.Next()
 			},
 		}},
 		{name: "break", fields: fields{
 			chain: []HandleFunc{
 				func(ctx *Context) error {
-					fmt.Println("chain 0")
+					t.Log("chain 0")
 					return ctx.Next()
 				},
 				func(ctx *Context) error {
-					fmt.Println("chain 1")
+					t.Log("chain 1")
 					return nil
 				},
 				func(ctx *Context) error {
-					fmt.Println("chain 2")
+					t.Log("chain 2")
 					return ctx.Next()
 				},
 			},
 			handle: func(ctx *Context) error {
-				fmt.Println("handle")
+				t.Log("handle")
 				return ctx.Next()
 			},
 		}},
 		{name: "error", fields: fields{
 			chain: []HandleFunc{
 				func(ctx *Context) error {
-					fmt.Println("chain 0")
+					t.Log("chain 0")
 					return ctx.Next()
 				},
 				func(ctx *Context) error {
-					fmt.Println("chain 1")
+					t.Log("chain 1")
 					return errors.New("error")
 				},
 				func(ctx *Context) error {
-					fmt.Println("chain 2")
+					t.Log("chain 2")
 					return ctx.Next()
 				},
 			},
 			handle: func(ctx *Context) error {
-				fmt.Println("handle")
+				t.Log("handle")
 				return ctx.Next()
 			},
 		}, wantErr: true},

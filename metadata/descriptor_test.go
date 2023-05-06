@@ -2,7 +2,6 @@ package metadata
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"testing"
 
@@ -37,5 +36,5 @@ func TestResolveRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(string(j))
+	t.Log(string(j))
 }
