@@ -45,6 +45,6 @@ func (h *Handler) WriteResponse(call *metadata.Call, ctx *engine.Context, data [
 
 	resp := ctx.Response()
 	resp.Header().Set("Content-Type", "application/json")
-	_, err = resp.Write(data)
+	_, err = resp.Write(j.IntoBytes())
 	return err
 }

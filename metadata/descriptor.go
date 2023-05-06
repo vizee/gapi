@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	annotation "github.com/vizee/gapi-proto-go/gapi"
@@ -169,7 +170,7 @@ walksd:
 				Call: &Call{
 					Server:   server,
 					Handler:  handler,
-					Method:   md.Name,
+					Method:   concatFullMethodName(sd.FullName, md.Name),
 					In:       inMsg.Message,
 					Out:      mc.Resolve(md.Out).Message,
 					Bindings: inMsg.bindings,
@@ -180,6 +181,16 @@ walksd:
 	}
 
 	return routes, nil
+}
+
+func concatFullMethodName(serviceName string, methodName string) string {
+	var s strings.Builder
+	s.Grow(2 + len(serviceName) + len(methodName))
+	s.WriteByte('/')
+	s.WriteString(serviceName)
+	s.WriteByte('/')
+	s.WriteString(methodName)
+	return s.String()
 }
 
 func checkMiddlewareName(name string) bool {
