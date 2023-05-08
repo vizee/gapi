@@ -14,12 +14,12 @@ func TestParseProtoDescriptor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	var fds descriptorpb.FileDescriptorSet
 	err = proto.Unmarshal(data, &fds)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	p := NewParser()
 	for _, fd := range fds.File {
 		err := p.AddFile(fd)

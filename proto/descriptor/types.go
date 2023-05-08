@@ -39,10 +39,11 @@ type ServiceDesc struct {
 }
 
 type MethodDesc struct {
-	Name string
-	In   *MessageDesc
-	Out  *MessageDesc
-	Opts MethodOptions
+	Name      string
+	In        *MessageDesc
+	Out       *MessageDesc
+	Streaming bool
+	Opts      MethodOptions
 }
 
 type MethodOptions struct {

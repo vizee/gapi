@@ -31,11 +31,18 @@ func (p *Parser) leave() {
 	p.prefix = "." + strings.Join(p.ns, ".")
 }
 
+func normalName(name string) string {
+	if len(name) > 0 && name[0] == '.' {
+		return name[1:]
+	}
+	return name
+}
+
 func (p *Parser) getMessage(fullName string) *MessageDesc {
 	msg := p.msgs[fullName]
 	if msg == nil {
 		msg = &MessageDesc{
-			Name:       fullName,
+			Name:       normalName(fullName),
 			Incomplete: true,
 		}
 		p.msgs[fullName] = msg
@@ -64,7 +71,8 @@ func (p *Parser) parseMessage(md *descriptorpb.DescriptorProto) {
 		if ty == descriptorpb.FieldDescriptorProto_TYPE_MESSAGE {
 			refName := fd.GetTypeName()
 			if !strings.HasPrefix(refName, ".") {
-				refName = fullName + "." + refName
+				// 这里只搜索了嵌套 scope，按照标准实现应该向上搜索到根
+				refName = p.prefix + "." + refName
 			}
 			msgRef = p.getMessage(refName)
 		}
@@ -88,9 +96,10 @@ func (p *Parser) parseMessage(md *descriptorpb.DescriptorProto) {
 
 func (p *Parser) parseMethod(md *descriptorpb.MethodDescriptorProto) (*MethodDesc, error) {
 	m := &MethodDesc{
-		Name: md.GetName(),
-		In:   p.getMessage(md.GetInputType()),
-		Out:  p.getMessage(md.GetOutputType()),
+		Name:      md.GetName(),
+		In:        p.getMessage(md.GetInputType()),
+		Out:       p.getMessage(md.GetOutputType()),
+		Streaming: md.GetClientStreaming() || md.GetServerStreaming(),
 	}
 	if opts, ok := proto.GetExtension(md.Options, annotation.E_Http).(*annotation.Http); ok && opts != nil {
 		var (
@@ -132,7 +141,7 @@ func (p *Parser) parseService(sd *descriptorpb.ServiceDescriptorProto) error {
 	use, _ := proto.GetExtension(sd.Options, annotation.E_Use).([]string)
 	svc := &ServiceDesc{
 		Name:     sd.GetName(),
-		FullName: strings.TrimLeft(p.prefix, ".") + "." + sd.GetName(),
+		FullName: normalName(p.prefix + "." + sd.GetName()),
 		Opts: ServiceOptions{
 			Server:         getOption(proto.GetExtension(sd.Options, annotation.E_Server), ""),
 			DefaultHandler: getOption(proto.GetExtension(sd.Options, annotation.E_DefaultHandler), ""),

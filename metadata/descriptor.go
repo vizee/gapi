@@ -110,7 +110,7 @@ func ResolveRoutes(mc *MessageCache, sds []*descriptor.ServiceDesc, ignoreError 
 			continue
 		}
 		for _, md := range sd.Methods {
-			if md.Opts.Method == "" || md.Opts.Path == "" {
+			if md.Streaming || md.Opts.Method == "" || md.Opts.Path == "" {
 				continue
 			}
 			routesNum++
