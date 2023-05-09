@@ -1,4 +1,4 @@
-package metadata
+package descs
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 
 	annotation "github.com/vizee/gapi-proto-go/gapi"
 	"github.com/vizee/gapi/internal/slices"
+	"github.com/vizee/gapi/metadata"
 	"github.com/vizee/gapi/proto/descriptor"
 	"github.com/vizee/jsonpb"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -14,7 +15,7 @@ import (
 
 type messageDesc struct {
 	*jsonpb.Message
-	bindings []FieldBinding
+	bindings []metadata.FieldBinding
 }
 
 type MessageCache struct {
@@ -73,18 +74,18 @@ func (mc *MessageCache) Resolve(md *descriptor.MessageDesc) *messageDesc {
 				Omit:     omit,
 			})
 		} else {
-			var bind BindSource
+			var bind metadata.BindSource
 			switch fd.Bind {
 			case annotation.FIELD_BIND_FROM_QUERY:
-				bind = BindQuery
+				bind = metadata.BindQuery
 			case annotation.FIELD_BIND_FROM_PARAMS:
-				bind = BindParams
+				bind = metadata.BindParams
 			case annotation.FIELD_BIND_FROM_HEADER:
-				bind = BindHeader
+				bind = metadata.BindHeader
 			case annotation.FIELD_BIND_FROM_CONTEXT:
-				bind = BindContext
+				bind = metadata.BindContext
 			}
-			msg.bindings = append(msg.bindings, FieldBinding{
+			msg.bindings = append(msg.bindings, metadata.FieldBinding{
 				Name: name,
 				Kind: kind,
 				Tag:  uint32(fd.Tag),
@@ -103,7 +104,7 @@ func (mc *MessageCache) Resolve(md *descriptor.MessageDesc) *messageDesc {
 	return msg
 }
 
-func ResolveRoutes(mc *MessageCache, sds []*descriptor.ServiceDesc, ignoreError bool) ([]Route, error) {
+func ToRoutes(mc *MessageCache, sds []*descriptor.ServiceDesc, ignoreError bool) ([]metadata.Route, error) {
 	routesNum := 0
 	for _, sd := range sds {
 		if sd.Opts.Server == "" {
@@ -116,7 +117,7 @@ func ResolveRoutes(mc *MessageCache, sds []*descriptor.ServiceDesc, ignoreError 
 			routesNum++
 		}
 	}
-	routes := make([]Route, 0, routesNum)
+	routes := make([]metadata.Route, 0, routesNum)
 walksd:
 	for _, sd := range sds {
 		server := sd.Opts.Server
@@ -163,11 +164,11 @@ walksd:
 			}
 
 			inMsg := mc.Resolve(md.In)
-			routes = append(routes, Route{
+			routes = append(routes, metadata.Route{
 				Method: md.Opts.Method,
 				Path:   sd.Opts.PathPrefix + md.Opts.Path,
 				Use:    slices.Merge(sd.Opts.Use, md.Opts.Use),
-				Call: &Call{
+				Call: &metadata.Call{
 					Server:   server,
 					Handler:  handler,
 					Method:   concatFullMethodName(sd.FullName, md.Name),

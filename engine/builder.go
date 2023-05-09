@@ -7,6 +7,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/vizee/gapi/internal/slices"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type GrpcDialer struct {
@@ -32,7 +33,7 @@ func NewBuilder() *Builder {
 			middlewares: make(map[string]HandleFunc),
 			handlers:    make(map[string]CallHandler),
 			dialer: &GrpcDialer{
-				Opts: []grpc.DialOption{grpc.WithInsecure()},
+				Opts: []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
 			},
 			notFound: func(ctx *Context) error {
 				http.NotFound(ctx.resp, ctx.req)

@@ -11,6 +11,7 @@ import (
 	"github.com/vizee/gapi/handlers/httpview"
 	"github.com/vizee/gapi/handlers/jsonapi"
 	"github.com/vizee/gapi/metadata"
+	"github.com/vizee/gapi/metadata/descs"
 	"github.com/vizee/gapi/proto/descriptor"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -106,7 +107,7 @@ func loadRoutes(fname string) ([]metadata.Route, error) {
 		}
 	}
 
-	return metadata.ResolveRoutes(&metadata.MessageCache{}, p.Services(), false)
+	return descs.ToRoutes(&descs.MessageCache{}, p.Services(), false)
 }
 
 func main() {

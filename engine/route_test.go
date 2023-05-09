@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func Test_grpcRoute_handleRoute(t *testing.T) {
-	cc, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	cc, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}

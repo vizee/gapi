@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestBuildEngine(t *testing.T) {
@@ -24,7 +25,7 @@ func TestBuildEngine(t *testing.T) {
 		defer recover()
 		return ctx.Next()
 	})
-	builder.Dialer(&GrpcDialer{Opts: []grpc.DialOption{grpc.WithInsecure()}})
+	builder.Dialer(&GrpcDialer{Opts: []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}})
 	builder.NotFound(func(ctx *Context) error {
 		ctx.Response().Write([]byte(`404`))
 		return nil

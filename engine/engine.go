@@ -59,6 +59,17 @@ func (e *Engine) generateMiddlewareChain(cache map[string][]HandleFunc, middlewa
 	return mws, nil
 }
 
+func (e *Engine) ClearRouter() {
+	e.routeLock.Lock()
+	clients := e.clients
+	e.clients = nil
+	e.router.Store(nil)
+	e.routeLock.Unlock()
+	for _, cc := range clients {
+		cc.Close()
+	}
+}
+
 func (e *Engine) RebuildRouter(routes []metadata.Route, ignoreError bool) error {
 	e.routeLock.Lock()
 	defer e.routeLock.Unlock()
@@ -169,22 +180,27 @@ func (e *Engine) Execute(w http.ResponseWriter, req *http.Request, params Params
 	e.ctxpool.Put(ctx)
 }
 
-func (e *Engine) handleNotFound(w http.ResponseWriter, req *http.Request) {
+func (e *Engine) NotFound(w http.ResponseWriter, req *http.Request) {
 	e.Execute(w, req, nil, e.uses, e.notFound)
 }
 
 func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log.Debugf("Route %s %s", req.Method, req.URL.Path)
 
-	path := req.URL.Path
-	handle, ps, tsr := e.router.Load().Lookup(req.Method, path)
-	if handle != nil {
-		handle(w, req, ps)
-	} else if tsr && path != "/" {
-		log.Debugf("Trailing slash redirect %s", req.URL.Path)
-		req.URL.Path = path + "/"
-		http.Redirect(w, req, req.URL.String(), http.StatusMovedPermanently)
-	} else {
-		e.handleNotFound(w, req)
+	router := e.router.Load()
+	if router != nil {
+		path := req.URL.Path
+		handle, ps, tsr := router.Lookup(req.Method, path)
+		if handle != nil {
+			handle(w, req, ps)
+			return
+		} else if tsr && path != "/" {
+			log.Debugf("Trailing slash redirect %s", req.URL.Path)
+			req.URL.Path = path + "/"
+			http.Redirect(w, req, req.URL.String(), http.StatusMovedPermanently)
+			return
+		}
 	}
+
+	e.NotFound(w, req)
 }

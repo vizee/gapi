@@ -1,4 +1,4 @@
-package metadata
+package descs
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-func TestResolveRoutes(t *testing.T) {
+func TestToRoutes(t *testing.T) {
 	data, err := os.ReadFile("../testdata/pdtest/pdtest.pd")
 	if err != nil {
 		t.Fatal(err)
@@ -28,7 +28,7 @@ func TestResolveRoutes(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	routes, err := ResolveRoutes(&MessageCache{}, p.Services(), false)
+	routes, err := ToRoutes(&MessageCache{}, p.Services(), false)
 	if err != nil {
 		t.Fatal(err)
 	}

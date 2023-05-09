@@ -35,6 +35,10 @@ func (c *Context) Response() http.ResponseWriter {
 	return c.resp
 }
 
+func (c *Context) SetResponse(w http.ResponseWriter) {
+	c.resp = w
+}
+
 func (ctx *Context) Set(name string, value string) {
 	if ctx.values == nil {
 		ctx.values = make(map[string]string)
