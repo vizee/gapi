@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/julienschmidt/httprouter"
 )
 
 func TestContext_Get(t *testing.T) {
@@ -42,9 +44,11 @@ func TestContext_reset(t *testing.T) {
 	ctx := &Context{
 		req:    &http.Request{},
 		resp:   nil,
-		values: map[string]string{"key": "value"},
-		params: Params{},
-		chain:  []HandleFunc{func(ctx *Context) error { return nil }},
+		params: []httprouter.Param{},
+		query:  map[string][]string{},
+		values: map[string]string{},
+		body:   []byte{},
+		chain:  []HandleFunc{},
 		handle: func(ctx *Context) error {
 			return nil
 		},

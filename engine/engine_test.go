@@ -12,7 +12,7 @@ func TestEngine_RebuildRouter(t *testing.T) {
 	builder := NewBuilder()
 	builder.RegisterHandler("mock-handler", &mockHandler{})
 	builder.RegisterMiddleware("auth", func(ctx *Context) error {
-		uid := ctx.Request().URL.Query().Get("uid")
+		uid := ctx.Query().Get("uid")
 		if uid != "" {
 			ctx.Set("uid", uid)
 			return ctx.Next()

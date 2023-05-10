@@ -38,7 +38,7 @@ func newEngine() *engine.Engine {
 	builder.RegisterHandler("jsonapi", &jsonapi.Handler{})
 
 	builder.RegisterMiddleware("sign", func(ctx *engine.Context) error {
-		sign := ctx.Request().URL.Query().Get("sign")
+		sign := ctx.Query().Get("sign")
 		if sign == "good" {
 			return ctx.Next()
 		} else {
@@ -48,7 +48,7 @@ func newEngine() *engine.Engine {
 	})
 
 	builder.RegisterMiddleware("auth", func(ctx *engine.Context) error {
-		uid := ctx.Request().URL.Query().Get("uid")
+		uid := ctx.Query().Get("uid")
 		if uid != "" {
 			ctx.Set("uid", uid)
 			return ctx.Next()

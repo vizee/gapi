@@ -2,7 +2,6 @@ package jsonapi
 
 import (
 	"github.com/vizee/gapi/engine"
-	"github.com/vizee/gapi/internal/ioutil"
 	"github.com/vizee/gapi/metadata"
 	"github.com/vizee/jsonpb"
 	"github.com/vizee/jsonpb/jsonlit"
@@ -16,7 +15,7 @@ type Handler struct {
 }
 
 func (h *Handler) ReadRequest(call *metadata.Call, ctx *engine.Context) ([]byte, error) {
-	data, err := ioutil.ReadLimited(ctx.Request().Body, ctx.Request().ContentLength, 1*1024*1024)
+	data, err := ctx.ReadBody()
 	if err != nil {
 		return nil, err
 	}

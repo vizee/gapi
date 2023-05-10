@@ -1,6 +1,8 @@
 package httpview
 
 import (
+	"io"
+
 	"github.com/vizee/gapi-proto-go/gapi/httpview"
 	"github.com/vizee/gapi/engine"
 	"github.com/vizee/gapi/internal/ioutil"
@@ -66,9 +68,15 @@ func (h *Handler) ReadRequest(_ *metadata.Call, ctx *engine.Context) ([]byte, er
 		}
 	}
 
-	body, err := ioutil.ReadLimited(req.Body, req.ContentLength, h.MaxBodySize)
-	if err != nil {
-		return nil, err
+	body := ctx.GetBody()
+	if h.MaxBodySize < int64(len(body)) {
+		body = body[:h.MaxBodySize]
+	} else {
+		var err error
+		body, err = ioutil.ReadToEnd(io.LimitReader(req.Body, h.MaxBodySize), req.ContentLength)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return proto.Marshal(&httpview.HttpRequest{

@@ -14,7 +14,7 @@ func appendBindings(enc *proto.Encoder, ctx *engine.Context, bindings []metadata
 		var val string
 		switch b.Bind {
 		case metadata.BindQuery:
-			val = ctx.Request().URL.Query().Get(b.Name)
+			val = ctx.Query().Get(b.Name)
 		case metadata.BindParams:
 			var ok bool
 			val, ok = ctx.Params().Get(b.Name)

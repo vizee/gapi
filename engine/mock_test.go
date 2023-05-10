@@ -1,9 +1,9 @@
 package engine
 
 import (
+	"io"
 	"net/http"
 
-	"github.com/vizee/gapi/internal/ioutil"
 	"github.com/vizee/gapi/metadata"
 	"github.com/vizee/jsonpb"
 )
@@ -11,7 +11,7 @@ import (
 type mockHandler struct{}
 
 func (*mockHandler) ReadRequest(_ *metadata.Call, ctx *Context) ([]byte, error) {
-	return ioutil.ReadLimited(ctx.Request().Body, ctx.Request().ContentLength, 1*1024*1024)
+	return io.ReadAll(ctx.Request().Body)
 }
 
 func (*mockHandler) WriteResponse(call *metadata.Call, ctx *Context, data []byte) error {
