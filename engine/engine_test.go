@@ -29,7 +29,7 @@ func TestEngine_RebuildRouter(t *testing.T) {
 		return nil
 	})
 	e := builder.Build()
-	e.RebuildRouter([]metadata.Route{
+	e.RebuildRouter([]*metadata.Route{
 		{Method: "POST", Path: "/add", Use: []string{"auth"}, Call: mockAddCall()},
 	}, true)
 	req, err := http.NewRequest("POST", "http://localhost/add?uid=1", strings.NewReader(`{"a":1,"b":2}`))

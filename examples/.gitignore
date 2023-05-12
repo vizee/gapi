@@ -1,5 +1,0 @@
-*.pb.go
-*.pd
-
-/gateway/gateway
-/helloworld/server/server

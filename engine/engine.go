@@ -70,7 +70,7 @@ func (e *Engine) ClearRouter() {
 	}
 }
 
-func (e *Engine) RebuildRouter(routes []metadata.Route, ignoreError bool) error {
+func (e *Engine) RebuildRouter(routes []*metadata.Route, ignoreError bool) error {
 	e.routeLock.Lock()
 	defer e.routeLock.Unlock()
 
@@ -87,8 +87,7 @@ func (e *Engine) RebuildRouter(routes []metadata.Route, ignoreError bool) error 
 	// 在同一次 router 构建中尽可能复用重复的 chain，在大量路由的情况下会带来一些内存节约
 	chainCache := make(map[string][]HandleFunc)
 	router := httprouter.New()
-	for i := range routes {
-		route := &routes[i]
+	for _, route := range routes {
 		ch := e.handlers[route.Call.Handler]
 		if ch == nil {
 			if ignoreError {
