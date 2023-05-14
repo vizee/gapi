@@ -70,7 +70,80 @@ func (e *Engine) ClearRouter() {
 	}
 }
 
+type routesSliceIter struct {
+	rs []*metadata.Route
+	i  int
+}
+
+func (it *routesSliceIter) NextRoute() *metadata.Route {
+	if it.i < len(it.rs) {
+		return it.rs[it.i]
+	}
+	return nil
+}
+
 func (e *Engine) RebuildRouter(routes []*metadata.Route, ignoreError bool) error {
+	return RebuildEngineRouter(e, &routesSliceIter{rs: routes}, ignoreError)
+}
+
+func registerRoute(router *httprouter.Router, method string, path string, handle httprouter.Handle) (err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("router.Handle: %v", e)
+		}
+	}()
+	router.Handle(method, path, handle)
+	return
+}
+
+func (e *Engine) Execute(w http.ResponseWriter, req *http.Request, params Params, chain []HandleFunc, handle HandleFunc) {
+	ctx := e.ctxpool.Get().(*Context)
+	ctx.req = req
+	ctx.resp = w
+	ctx.params = params
+	ctx.chain = chain
+	ctx.handle = handle
+
+	err := ctx.Next()
+	if err != nil {
+		log.Errorf("Execute %s: %v", req.URL.Path, err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+
+	ctx.reset()
+	e.ctxpool.Put(ctx)
+}
+
+func (e *Engine) NotFound(w http.ResponseWriter, req *http.Request) {
+	e.Execute(w, req, nil, e.uses, e.notFound)
+}
+
+func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	log.Debugf("Route %s %s", req.Method, req.URL.Path)
+
+	router := e.router.Load()
+	if router != nil {
+		path := req.URL.Path
+		handle, ps, tsr := router.Lookup(req.Method, path)
+		if handle != nil {
+			handle(w, req, ps)
+			return
+		} else if tsr && path != "/" {
+			log.Debugf("Trailing slash redirect %s", req.URL.Path)
+			req.URL.Path = path + "/"
+			http.Redirect(w, req, req.URL.String(), http.StatusMovedPermanently)
+			return
+		}
+	}
+
+	e.NotFound(w, req)
+}
+
+type RouteIter interface {
+	NextRoute() *metadata.Route
+}
+
+func RebuildEngineRouter[R RouteIter](e *Engine, routeIter R, ignoreError bool) error {
 	e.routeLock.Lock()
 	defer e.routeLock.Unlock()
 
@@ -87,7 +160,11 @@ func (e *Engine) RebuildRouter(routes []*metadata.Route, ignoreError bool) error
 	// 在同一次 router 构建中尽可能复用重复的 chain，在大量路由的情况下会带来一些内存节约
 	chainCache := make(map[string][]HandleFunc)
 	router := httprouter.New()
-	for _, route := range routes {
+	for {
+		route := routeIter.NextRoute()
+		if route == nil {
+			break
+		}
 		ch := e.handlers[route.Call.Handler]
 		if ch == nil {
 			if ignoreError {
@@ -149,57 +226,4 @@ func (e *Engine) RebuildRouter(routes []*metadata.Route, ignoreError bool) error
 	clients = nil
 
 	return nil
-}
-
-func registerRoute(router *httprouter.Router, method string, path string, handle httprouter.Handle) (err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("router.Handle: %v", e)
-		}
-	}()
-	router.Handle(method, path, handle)
-	return
-}
-
-func (e *Engine) Execute(w http.ResponseWriter, req *http.Request, params Params, chain []HandleFunc, handle HandleFunc) {
-	ctx := e.ctxpool.Get().(*Context)
-	ctx.req = req
-	ctx.resp = w
-	ctx.params = params
-	ctx.chain = chain
-	ctx.handle = handle
-
-	err := ctx.Next()
-	if err != nil {
-		log.Errorf("Execute %s: %v", req.URL.Path, err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}
-
-	ctx.reset()
-	e.ctxpool.Put(ctx)
-}
-
-func (e *Engine) NotFound(w http.ResponseWriter, req *http.Request) {
-	e.Execute(w, req, nil, e.uses, e.notFound)
-}
-
-func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	log.Debugf("Route %s %s", req.Method, req.URL.Path)
-
-	router := e.router.Load()
-	if router != nil {
-		path := req.URL.Path
-		handle, ps, tsr := router.Lookup(req.Method, path)
-		if handle != nil {
-			handle(w, req, ps)
-			return
-		} else if tsr && path != "/" {
-			log.Debugf("Trailing slash redirect %s", req.URL.Path)
-			req.URL.Path = path + "/"
-			http.Redirect(w, req, req.URL.String(), http.StatusMovedPermanently)
-			return
-		}
-	}
-
-	e.NotFound(w, req)
 }
