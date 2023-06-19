@@ -12,6 +12,7 @@ var _ engine.CallHandler = &Handler{}
 
 type Handler struct {
 	SurroundOutput [2]string
+	EmptyRequest   bool
 }
 
 func (h *Handler) ReadRequest(call *metadata.Call, ctx *engine.Context) ([]byte, error) {
@@ -20,9 +21,11 @@ func (h *Handler) ReadRequest(call *metadata.Call, ctx *engine.Context) ([]byte,
 		return nil, err
 	}
 	var enc proto.Encoder
-	err = jsonpb.TranscodeToProto(&enc, jsonlit.NewIter(data), call.In)
-	if err != nil {
-		return nil, err
+	if len(data) > 0 || !h.EmptyRequest {
+		err := jsonpb.TranscodeToProto(&enc, jsonlit.NewIter(data), call.In)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if len(call.Bindings) > 0 {
 		err = appendBindings(&enc, ctx, call.Bindings)
